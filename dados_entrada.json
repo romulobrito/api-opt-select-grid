@@ -1,0 +1,417 @@
+{
+    "general_configuration": {
+        "criteria": "waste",
+        "overproduction_percentage": 0.05,
+        "max_layers": 30,
+        "max_total_length": 10000
+    },
+    "layouts": [
+        {
+            "id": 1,
+            "utilization": 0.88,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2600,
+            "total_perimeter": 2000,
+            "utilized_area": 34320,
+            "waste_area": 4680,
+            "total_area": 39000,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 8,
+                        "M": 10,
+                        "G": 8,
+                        "GG": 6
+                    }
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "utilization": 0.87,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2500,
+            "total_perimeter": 1900,
+            "utilized_area": 32625,
+            "waste_area": 4875,
+            "total_area": 37500,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 10,
+                        "M": 8,
+                        "G": 7,
+                        "GG": 7
+                    }
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "utilization": 0.89,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2700,
+            "total_perimeter": 2100,
+            "utilized_area": 36045,
+            "waste_area": 4455,
+            "total_area": 40500,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 6,
+                        "M": 12,
+                        "G": 6,
+                        "GG": 8
+                    }
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "utilization": 0.86,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2800,
+            "total_perimeter": 2200,
+            "utilized_area": 36120,
+            "waste_area": 5880,
+            "total_area": 42000,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 12,
+                        "M": 6,
+                        "G": 8,
+                        "GG": 6
+                    }
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "utilization": 0.88,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2650,
+            "total_perimeter": 2050,
+            "utilized_area": 34980,
+            "waste_area": 4770,
+            "total_area": 39750,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 7,
+                        "M": 7,
+                        "G": 10,
+                        "GG": 8
+                    }
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "utilization": 0.87,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2750,
+            "total_perimeter": 2150,
+            "utilized_area": 35887,
+            "waste_area": 5363,
+            "total_area": 41250,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 8,
+                        "M": 8,
+                        "G": 12,
+                        "GG": 4
+                    }
+                }
+            ]
+        },
+        {
+            "id": 7,
+            "utilization": 0.89,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2550,
+            "total_perimeter": 1950,
+            "utilized_area": 34042,
+            "waste_area": 4208,
+            "total_area": 38250,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 6,
+                        "M": 6,
+                        "G": 8,
+                        "GG": 12
+                    }
+                }
+            ]
+        },
+        {
+            "id": 8,
+            "utilization": 0.86,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2900,
+            "total_perimeter": 2300,
+            "utilized_area": 37410,
+            "waste_area": 6090,
+            "total_area": 43500,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 10,
+                        "M": 12,
+                        "G": 4,
+                        "GG": 6
+                    }
+                }
+            ]
+        },
+        {
+            "id": 9,
+            "utilization": 0.88,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2450,
+            "total_perimeter": 1850,
+            "utilized_area": 32340,
+            "waste_area": 4410,
+            "total_area": 36750,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 8,
+                        "M": 14,
+                        "G": 6,
+                        "GG": 4
+                    }
+                }
+            ]
+        },
+        {
+            "id": 10,
+            "utilization": 0.87,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2850,
+            "total_perimeter": 2250,
+            "utilized_area": 37177,
+            "waste_area": 5573,
+            "total_area": 42750,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 14,
+                        "M": 8,
+                        "G": 6,
+                        "GG": 4
+                    }
+                }
+            ]
+        },
+        {
+            "id": 11,
+            "utilization": 0.89,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2750,
+            "total_perimeter": 2150,
+            "utilized_area": 36712,
+            "waste_area": 4538,
+            "total_area": 41250,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 4,
+                        "M": 6,
+                        "G": 14,
+                        "GG": 8
+                    }
+                }
+            ]
+        },
+        {
+            "id": 12,
+            "utilization": 0.86,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2600,
+            "total_perimeter": 2000,
+            "utilized_area": 33540,
+            "waste_area": 5460,
+            "total_area": 39000,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 6,
+                        "M": 8,
+                        "G": 8,
+                        "GG": 10
+                    }
+                }
+            ]
+        },
+        {
+            "id": 13,
+            "utilization": 0.88,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2700,
+            "total_perimeter": 2100,
+            "utilized_area": 35640,
+            "waste_area": 4860,
+            "total_area": 40500,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 12,
+                        "M": 10,
+                        "G": 6,
+                        "GG": 4
+                    }
+                }
+            ]
+        },
+        {
+            "id": 14,
+            "utilization": 0.87,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2800,
+            "total_perimeter": 2200,
+            "utilized_area": 36540,
+            "waste_area": 5460,
+            "total_area": 42000,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 4,
+                        "M": 12,
+                        "G": 10,
+                        "GG": 6
+                    }
+                }
+            ]
+        },
+        {
+            "id": 15,
+            "utilization": 0.89,
+            "fabric_width": 1500,
+            "fabric": "knit",
+            "layout_length": 2650,
+            "total_perimeter": 2050,
+            "utilized_area": 35377,
+            "waste_area": 4373,
+            "total_area": 39750,
+            "pieces": [
+                {
+                    "pattern": "basic_tshirt",
+                    "size_grade": {
+                        "P": 8,
+                        "M": 8,
+                        "G": 8,
+                        "GG": 8
+                    }
+                }
+            ]
+        }
+    ],
+    "fabrics": [
+        {
+            "fabric": "knit",
+            "cost_per_cut_meter": 0.45,
+            "price_per_linear_meter": 18.90,
+            "cost_per_layout_meter": 0.30,
+            "cost_per_layer": 1.25
+        }
+    ],
+    "production_orders": [
+        {
+            "id": 1,
+            "demand": [
+                {
+                    "fabric_width": 1500,
+                    "max_layers": 30,
+                    "max_length": 40000,
+                    "pieces": [
+                        {
+                            "pattern": "basic_tshirt",
+                            "fabrics": ["knit"],
+                            "quantity": {
+                                "P": 100,
+                                "M": 150,
+                                "G": 120,
+                                "GG": 80
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "demand": [
+                {
+                    "fabric_width": 1500,
+                    "max_layers": 25,
+                    "max_length": 27000,
+                    "pieces": [
+                        {
+                            "pattern": "basic_tshirt",
+                            "fabrics": ["knit"],
+                            "quantity": {
+                                "P": 80,
+                                "M": 140,
+                                "G": 60,
+                                "GG": 40
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "demand": [
+                {
+                    "fabric_width": 1500,
+                    "max_layers": 35,
+                    "max_length": 38000,
+                    "pieces": [
+                        {
+                            "pattern": "basic_tshirt",
+                            "fabrics": ["knit"],
+                            "quantity": {
+                                "P": 60,
+                                "M": 90,
+                                "G": 150,
+                                "GG": 120
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
