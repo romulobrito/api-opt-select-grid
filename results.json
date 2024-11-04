@@ -1,0 +1,70 @@
+[
+    {
+        "kpis": {
+            "total_cost": 60.372941000000004,
+            "cutting_cost": 0.8325,
+            "layout_cost": 0.735,
+            "waste_cost": 0.000441,
+            "fabric_meters": 2.45,
+            "cut_perimeter": 1.85,
+            "fabric_waste": 0.00441
+        },
+        "production": [
+            {
+                "pattern": "basic_tshirt",
+                "fabrics": [
+                    "knit"
+                ],
+                "quantity": {
+                    "P": 80,
+                    "M": 140,
+                    "G": 60,
+                    "GG": 40
+                },
+                "production": {
+                    "P": 80,
+                    "M": 140,
+                    "G": 60,
+                    "GG": 40
+                },
+                "layout_ids": [
+                    9
+                ]
+            }
+        ],
+        "layouts": [
+            {
+                "id": 9,
+                "utilization": 0.88,
+                "fabric_width": 1500,
+                "fabric": "knit",
+                "layout_length": 2450,
+                "total_perimeter": 1850,
+                "utilized_area": 32340,
+                "waste_area": 4410,
+                "total_area": 36750,
+                "pieces": [
+                    {
+                        "pattern": "basic_tshirt",
+                        "size_grade": {
+                            "P": 8,
+                            "M": 14,
+                            "G": 6,
+                            "GG": 4
+                        }
+                    }
+                ],
+                "efficiency": {
+                    "P": 2.873469387755102,
+                    "M": 5.028571428571428,
+                    "G": 2.155102040816326,
+                    "GG": 1.436734693877551
+                },
+                "layers": 10,
+                "order_ids": [
+                    2
+                ]
+            }
+        ]
+    }
+]
