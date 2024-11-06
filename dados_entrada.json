@@ -1,7 +1,8 @@
 {
     "general_configuration": {
         "optimality_gap": 0.01,  
-        "solver_time_limit": 6,  
+        "solver_time_limit": 6, 
+        "max_memory_mb": 2048, 
         "criteria": "waste",
         "overproduction_percentage": 0.05,
         "max_layers": 50,
