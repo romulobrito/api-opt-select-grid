@@ -1,68 +1,107 @@
 [
     {
-        "kpis": {
-            "total_cost": 60.372941000000004,
-            "cutting_cost": 0.8325,
-            "layout_cost": 0.735,
-            "waste_cost": 0.000441,
-            "fabric_meters": 2.45,
-            "cut_perimeter": 1.85,
-            "fabric_waste": 0.00441
+        "order_id": "order_1",
+        "pattern": "calca",
+        "metrics": {
+            "total_cost": 5496.860067,
+            "fabric_meters": 279.937,
+            "fabric_waste": 0.446434,
+            "cutting_cost": 158.32755,
+            "layout_cost": 47.5
         },
         "production": [
             {
-                "pattern": "basic_tshirt",
+                "pattern": "calca",
                 "fabrics": [
-                    "knit"
+                    "algodao"
                 ],
                 "quantity": {
-                    "P": 80,
-                    "M": 140,
-                    "G": 60,
-                    "GG": 40
+                    "P": 58,
+                    "M": 79,
+                    "G": 57,
+                    "GG": 64
                 },
                 "production": {
-                    "P": 80,
-                    "M": 140,
-                    "G": 60,
-                    "GG": 40
+                    "P": 60,
+                    "M": 79,
+                    "G": 57,
+                    "GG": 66
                 },
                 "layout_ids": [
-                    9
+                    3,
+                    4,
+                    2,
+                    1
                 ]
             }
         ],
         "layouts": [
             {
-                "id": 9,
-                "utilization": 0.88,
-                "fabric_width": 1500,
-                "fabric": "knit",
-                "layout_length": 2450,
-                "total_perimeter": 1850,
-                "utilized_area": 32340,
-                "waste_area": 4410,
-                "total_area": 36750,
-                "pieces": [
-                    {
-                        "pattern": "basic_tshirt",
-                        "size_grade": {
-                            "P": 8,
-                            "M": 14,
-                            "G": 6,
-                            "GG": 4
-                        }
-                    }
-                ],
-                "efficiency": {
-                    "P": 2.873469387755102,
-                    "M": 5.028571428571428,
-                    "G": 2.155102040816326,
-                    "GG": 1.436734693877551
-                },
-                "layers": 10,
+                "id": 3,
+                "utilization": 0.94,
+                "fabric_width": 0,
+                "fabric": "",
+                "layout_length": 0,
+                "total_perimeter": 0,
+                "utilized_area": 0,
+                "waste_area": 0,
+                "total_area": 0,
+                "pieces": [],
+                "efficiency": {},
+                "layers": 12,
                 "order_ids": [
-                    2
+                    "order_1"
+                ]
+            },
+            {
+                "id": 4,
+                "utilization": 0.91,
+                "fabric_width": 0,
+                "fabric": "",
+                "layout_length": 0,
+                "total_perimeter": 0,
+                "utilized_area": 0,
+                "waste_area": 0,
+                "total_area": 0,
+                "pieces": [],
+                "efficiency": {},
+                "layers": 9,
+                "order_ids": [
+                    "order_1"
+                ]
+            },
+            {
+                "id": 2,
+                "utilization": 0.85,
+                "fabric_width": 0,
+                "fabric": "",
+                "layout_length": 0,
+                "total_perimeter": 0,
+                "utilized_area": 0,
+                "waste_area": 0,
+                "total_area": 0,
+                "pieces": [],
+                "efficiency": {},
+                "layers": 16,
+                "order_ids": [
+                    "order_1"
+                ]
+            },
+            {
+                "id": 1,
+                "utilization": 0.82,
+                "fabric_width": 0,
+                "fabric": "",
+                "layout_length": 0,
+                "total_perimeter": 0,
+                "utilized_area": 0,
+                "waste_area": 0,
+                "total_area": 0,
+                "pieces": [],
+                "efficiency": {},
+                "layers": 1,
+                "order_ids": [
+                    "order_1"
                 ]
             }
         ]
