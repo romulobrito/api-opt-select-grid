@@ -39,3 +39,9 @@ ENV/
 
 # Local development
 .DS_Store
+
+
+# External files
+*.xlsx
+.html
+.md

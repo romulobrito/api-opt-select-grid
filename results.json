@@ -3,106 +3,105 @@
         "order_id": "order_1",
         "pattern": "calca",
         "metrics": {
-            "total_cost": 5496.860067,
-            "fabric_meters": 279.937,
-            "fabric_waste": 0.446434,
-            "cutting_cost": 158.32755,
-            "layout_cost": 47.5
+            "fabric_meters": 280.71700000000004,
+            "fabric_cost": 5305.551299999999,
+            "cutting_cost": 156.91995,
+            "layout_setup_cost": 131.7151,
+            "layer_cost": 47.5,
+            "waste_cost": 0.248293,
+            "total_cost": 5641.934643,
+            "fabric_waste": 0.496586
         },
-        "production": [
+        "demand": {
+            "P": 58,
+            "M": 79,
+            "G": 57,
+            "GG": 64
+        },
+        "production": {
+            "P": 60,
+            "M": 79,
+            "G": 57,
+            "GG": 64
+        },
+        "overproduction": {
+            "P": 2,
+            "M": 0,
+            "G": 0,
+            "GG": 0
+        },
+        "layouts_used": [
             {
-                "pattern": "calca",
-                "fabrics": [
-                    "algodao"
-                ],
-                "quantity": {
-                    "P": 58,
-                    "M": 79,
-                    "G": 57,
-                    "GG": 64
-                },
-                "production": {
-                    "P": 60,
-                    "M": 79,
-                    "G": 57,
-                    "GG": 66
-                },
-                "layout_ids": [
-                    3,
-                    4,
-                    2,
-                    1
-                ]
-            }
-        ],
-        "layouts": [
-            {
-                "id": 3,
+                "layout_id": 3,
+                "num_layers": 10,
+                "length_meters": 7.921,
                 "utilization": 0.94,
-                "fabric_width": 0,
-                "fabric": "",
-                "layout_length": 0,
-                "total_perimeter": 0,
-                "utilized_area": 0,
-                "waste_area": 0,
-                "total_area": 0,
-                "pieces": [],
-                "efficiency": {},
-                "layers": 12,
-                "order_ids": [
-                    "order_1"
-                ]
+                "waste_area": 0.007129,
+                "production_per_size": {
+                    "P": 20,
+                    "M": 30,
+                    "G": 10,
+                    "GG": 20
+                },
+                "costs": {
+                    "fabric_cost": 1497.069,
+                    "cutting_cost": 47.7225,
+                    "layout_cost": 36.263
+                }
             },
             {
-                "id": 4,
+                "layout_id": 4,
+                "num_layers": 7,
+                "length_meters": 7.233,
                 "utilization": 0.91,
-                "fabric_width": 0,
-                "fabric": "",
-                "layout_length": 0,
-                "total_perimeter": 0,
-                "utilized_area": 0,
-                "waste_area": 0,
-                "total_area": 0,
-                "pieces": [],
-                "efficiency": {},
-                "layers": 9,
-                "order_ids": [
-                    "order_1"
-                ]
+                "waste_area": 0.009765,
+                "production_per_size": {
+                    "P": 14,
+                    "M": 7,
+                    "G": 21,
+                    "GG": 7
+                },
+                "costs": {
+                    "fabric_cost": 956.9259,
+                    "cutting_cost": 29.40525,
+                    "layout_cost": 23.939300000000003
+                }
             },
             {
-                "id": 2,
+                "layout_id": 2,
+                "num_layers": 16,
+                "length_meters": 7.001,
                 "utilization": 0.85,
-                "fabric_width": 0,
-                "fabric": "",
-                "layout_length": 0,
-                "total_perimeter": 0,
-                "utilized_area": 0,
-                "waste_area": 0,
-                "total_area": 0,
-                "pieces": [],
-                "efficiency": {},
-                "layers": 16,
-                "order_ids": [
-                    "order_1"
-                ]
+                "waste_area": 0.015751,
+                "production_per_size": {
+                    "P": 16,
+                    "M": 32,
+                    "G": 16,
+                    "GG": 32
+                },
+                "costs": {
+                    "fabric_cost": 2117.1023999999998,
+                    "cutting_cost": 59.119200000000006,
+                    "layout_cost": 53.6048
+                }
             },
             {
-                "id": 1,
+                "layout_id": 1,
+                "num_layers": 5,
+                "length_meters": 7.772,
                 "utilization": 0.82,
-                "fabric_width": 0,
-                "fabric": "",
-                "layout_length": 0,
-                "total_perimeter": 0,
-                "utilized_area": 0,
-                "waste_area": 0,
-                "total_area": 0,
-                "pieces": [],
-                "efficiency": {},
-                "layers": 1,
-                "order_ids": [
-                    "order_1"
-                ]
+                "waste_area": 0.020985,
+                "production_per_size": {
+                    "P": 10,
+                    "M": 10,
+                    "G": 10,
+                    "GG": 5
+                },
+                "costs": {
+                    "fabric_cost": 734.454,
+                    "cutting_cost": 20.673,
+                    "layout_cost": 17.908
+                }
             }
         ]
     }
