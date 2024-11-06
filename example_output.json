@@ -1,0 +1,73 @@
+{
+    "kpis": {
+        "total_cost": 100,
+        "cutting_cost": 1,
+        "spreading_cost": 1,
+        "waste_cost": 1,
+        "fabric_meters": 48.22,
+        "cut_perimeter": 764.00,
+        "fabric_waste": 17.80
+    },
+    "production": [
+        {
+            "pieces": [
+                {
+                    "pattern": "panties",
+                    "fabrics": ["lycra", "rib"],
+                    "quantity": {"P": 10, "M": 25, "G": 30, "GG": 20},
+                    "production": {"P": 10, "M": 30, "G": 30, "GG": 20},
+                    "layout_ids": [1]
+                },
+                {
+                    "pattern": "shirt",
+                    "fabrics": ["lycra"],
+                    "quantity": {"P": 20, "M": 30, "G": 10, "GG": 10},
+                    "production": {"P": 20, "M": 30, "G": 12, "GG": 10}
+                }
+            ]
+        }
+    ],
+    "layouts": [
+        {
+            "id": 1,
+            "utilization": 0.88,
+            "fabric_width": 1500,
+            "fabric": "lycra",
+            "layout_length": 2600,
+            "total_perimeter": 2000,
+            "utilized_area": 34320,
+            "waste_area": 4680,
+            "total_area": 39000,
+            "pieces": [
+                {
+                    "pattern": "panties",
+                    "size_grade": {"P": 1, "M": 2, "G": 3, "GG": 2}
+                },
+                {
+                    "pattern": "shirt",
+                    "size_grade": {"P": 2, "M": 3, "G": 1, "GG": 1}
+                }
+            ],
+            "order_ids": [1, 2],
+            "layers": 10
+        },
+        {
+            "id": 2,
+            "utilization": 0.88,
+            "fabric_width": 1500,
+            "fabric": "rib",
+            "layout_length": 2600,
+            "total_perimeter": 2000,
+            "utilized_area": 34320,
+            "waste_area": 4680,
+            "total_area": 39000,
+            "pieces": [
+                {
+                    "pattern": "panties",
+                    "size_grade": {"P": 1, "M": 2, "G": 3, "GG": 2}
+                }
+            ],
+            "layers": 20
+        }
+    ]
+}
