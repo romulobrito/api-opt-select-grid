@@ -48,20 +48,30 @@ def view_results():
 
     url = "http://localhost:8000/optimize"
     
-    with open('dados_entrada.json', 'r', encoding='utf-8') as f:  
-        data = json.load(f)
-    
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-
     try:
+        with open('dados_entrada.json', 'r', encoding='utf-8') as f:  
+            data = json.load(f)
+        
+        # Validação básica dos dados
+        required_keys = ['general_configuration', 'layouts', 'fabrics', 'pieces']
+        for key in required_keys:
+            if key not in data:
+                raise ValueError(f"Missing required key: {key}")
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
         print(f"Sending request to {url}...")
         response = requests.post(url, json=data, headers=headers)
         print(f"Response status: {response.status_code}")
 
-        if response.status_code != 200:
+        if response.status_code == 422:
+            error_detail = response.json().get('detail', 'Unknown validation error')
+            print(f"Validation error: {error_detail}")
+            return
+        elif response.status_code != 200:
             print(f"Request error: {response.text}")
             return
 
@@ -78,8 +88,9 @@ def view_results():
                     print("Métricas:")
                     metrics = result['metrics']
                     print(f"  Custo total: {formatar_moeda(metrics['total_cost'])}")
-                    print(f"  Metros de tecido: {metrics['fabric_meters']:.2f} m")
-                    print(f"  Desperdício: {metrics['fabric_waste']:.4f} m²")
+                    print(f"  Tecido total utilizado: {metrics['fabric_meters']:.2f} metros lineares")
+                    print(f"  Desperdício: {metrics['fabric_waste_area']:.2f} m²")
+                    print(f"  Desperdício: {metrics['fabric_waste_meters']:.2f} metros lineares")
                 else:
                     print(f"\nPeça {order_id}: Sem solução viável")
 

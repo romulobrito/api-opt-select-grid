@@ -7,7 +7,10 @@
         "overproduction_percentage": 0.05,
         "max_layers": 50,
         "max_total_length": 10000,
-        "waste_cost": 0.5
+        "waste_cost": 1000,
+        "layout_change_penalty": 2500,    
+        "min_layers_per_layout": 1,       
+        "waste_penalty_factor": 1000       
     },
     "fabrics": [
         {
