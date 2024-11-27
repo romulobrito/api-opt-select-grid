@@ -3,6 +3,7 @@ import logging
 from ortools.linear_solver import pywraplp
 from openpyxl import Workbook
 import unicodedata
+import traceback
 
 # Logging Configuration
 logging.basicConfig(
@@ -45,78 +46,341 @@ class LayoutOptimizer:
         
         if self.waste_penalty_factor < 0:
             raise ValueError("waste_penalty_factor deve ser não-negativo")
+        
+        for fabric in self.fabrics.values():
+            fabric['price_per_square_meter'] = (
+                fabric['price_per_linear_meter'] / (fabric['fabric_width'] / 1000)
+            )
+            logging.info(f"Preço por m² do tecido {fabric['fabric']}: R${fabric['price_per_square_meter']:.2f}")
 
 
 
 
     def optimize_production(self):
-        """Método principal de otimização"""
         results = {}
         
         for i, piece in enumerate(self.pieces, 1):
             order_id = f'order_{i}'
-            logging.info(f"Processando {piece['pattern']} (Ordem {order_id})")
+            pattern = piece['pattern']
+            logging.info(f"Processando {pattern} (Ordem {order_id})")
             
-            # Cria estrutura de ordem sintética
+            # Cria estrutura de ordem
             order = {
                 'id': order_id,
+                'pattern': pattern,
                 'pieces': [piece],
                 'fabric_width': self.fabrics[piece['fabrics'][0]]['fabric_width'],
                 'max_layers': self.fabrics[piece['fabrics'][0]]['max_layers'],
                 'max_length': self.config['max_total_length']
             }
             
+            # Otimiza ordem
             result = self.optimize_order(order)
             if result:
+                # Garante que todas as métricas existam com valores padrão
+                metrics = {
+                    'fabric_meters': 0.0,
+                    'fabric_cost': 0.0,
+                    'cutting_cost': 0.0,
+                    'layout_cost': 0.0,
+                    'layer_cost': 0.0,
+                    'waste_cost': 0.0,
+                    'total_cost': 0.0,
+                    'fabric_waste_area': 0.0,
+                    'fabric_waste_meters': 0.0,
+                    'total_waste_percentage': 0.0
+                }
+                
+                # Atualiza com os valores calculados
+                metrics.update(result['metrics'])
+                
+                # Recalcula o custo total para garantir consistência
+                metrics['total_cost'] = sum([
+                    metrics['fabric_cost'],
+                    metrics['cutting_cost'],
+                    metrics['layout_cost'],
+                    metrics['layer_cost'],
+                    metrics['waste_cost']
+                ])
+                
+                result['metrics'] = metrics
                 results[order_id] = result
-                logging.info(f"Solução encontrada para {piece['pattern']}")
-            else:
-                logging.warning(f"Não foi possível encontrar solução para {piece['pattern']}")
+                
+                # Validação final das métricas
+                self._validate_metrics(result['metrics'])
                 
         return results
 
+    def _validate_layout_metrics(self, layout_data):
+        """Valida as métricas dos layouts"""
+        # Comprimento em metros deve ser maior que 0
+        if layout_data['length_meters'] <= 0:
+            raise ValueError(f"Comprimento inválido: {layout_data['length_meters']}")
+            
+        # Comprimento em metros deve ser consistente com o valor em milímetros
+        expected_length = layout_data['layout_length'] / 1000
+        if abs(layout_data['length_meters'] - expected_length) > 0.001:
+            raise ValueError(
+                f"Inconsistência no comprimento: "
+                f"esperado {expected_length}m, "
+                f"obtido {layout_data['length_meters']}m"
+            )
+        
+
+    def _validate_waste_metrics(self, layout_data):
+        """Valida as métricas de desperdício"""
+        # Área de desperdício em m² deve ser consistente com o valor em mm²
+        expected_waste_area = layout_data['waste_area'] / 1_000_000
+        if abs(layout_data['waste_area'] - expected_waste_area) > 0.0001:
+            raise ValueError(
+                f"Inconsistência na área de desperdício: "
+                f"esperado {expected_waste_area}m², "
+                f"obtido {layout_data['waste_area']}m²"
+            )
+    
+    def _validate_metrics(self, metrics):
+        """Valida a consistência das métricas calculadas"""
+        try:
+            # Verifica valores negativos
+            for key, value in metrics.items():
+                if value < 0:
+                    raise ValueError(f"Métrica {key} com valor negativo: {value}")
+            
+            # Verifica consistência do custo total
+            expected_total = sum([
+                metrics['fabric_cost'],
+                metrics['cutting_cost'],
+                metrics['layout_cost'],
+                metrics['layer_cost'],
+                metrics['waste_cost']
+            ])
+            
+            if abs(expected_total - metrics['total_cost']) > 0.01:
+                raise ValueError(
+                    f"Inconsistência no custo total: "
+                    f"esperado R${expected_total:.2f}, "
+                    f"obtido R${metrics['total_cost']:.2f}"
+                )
+            
+                
+            # Verifica consistência do desperdício
+            if metrics['fabric_waste_meters'] > metrics['fabric_meters']:
+                raise ValueError("Metros desperdiçados maior que metros totais")
+            
+            # Validação específica para métricas de desperdício
+            if metrics['fabric_waste_area'] > 0:
+                expected_waste_meters = metrics['fabric_waste_area'] / (self.fabrics[self.pieces[0]['fabrics'][0]]['fabric_width'] / 1000)
+                if abs(metrics['fabric_waste_meters'] - expected_waste_meters) > 0.0001:
+                    raise ValueError(
+                        f"Inconsistência nos metros desperdiçados: "
+                        f"esperado {expected_waste_meters:.6f}m, "
+                        f"obtido {metrics['fabric_waste_meters']:.6f}m"
+                    )
+                
+        except Exception as e:
+            logging.error(f"Erro na validação das métricas: {str(e)}")
+            raise
+    
+    def _validate_costs(self, layout_data):
+        try:
+            fabric = self.fabrics[layout_data['fabric']]
+            tolerance = 0.01
+            num_layers = layout_data['num_layers']
+            length_meters = layout_data['layout_length'] / 1000  # mm para m
+            
+            # Conversões para cálculo do desperdício
+            waste_area_m2 = layout_data['waste_area'] / 1_000_000  # mm² para m²
+            fabric_width_m = layout_data['fabric_width'] / 1000    # mm para m
+            waste_meters = waste_area_m2 / fabric_width_m
+            
+            # Custos esperados
+            expected_costs = {
+                'fabric_cost': length_meters * fabric['price_per_linear_meter'] * num_layers,
+                'cutting_cost': (layout_data['total_perimeter'] / 1000) * fabric['cost_per_cut_meter'] * num_layers,
+                'layout_cost': length_meters * fabric['cost_per_layout_meter'] * num_layers,
+                'layer_cost': fabric['cost_per_layer'] * num_layers,
+                'waste_cost': waste_meters * fabric['price_per_linear_meter'] * num_layers
+            }
+            
+            # Validação
+            for cost_type, expected in expected_costs.items():
+                actual = layout_data['costs'].get(cost_type, 0)
+                if abs(actual - expected) > tolerance:
+                    raise ValueError(
+                        f"Erro no cálculo do {cost_type}: "
+                        f"esperado R${expected:.2f}, "
+                        f"obtido R${actual:.2f}"
+                    )
+                    
+        except Exception as e:
+            logging.error(f"Erro na validação dos custos: {str(e)}")
+            raise
+
+
+
+    def _calculate_waste_cost(self, layout, num_layers):
+        try:
+            fabric = self.fabrics[layout['fabric']]
+            
+            # Conversões corretas de unidades
+            waste_area_m2 = layout['waste_area'] / 1_000_000  # mm² para m²
+            fabric_width_m = layout['fabric_width'] / 1000    # mm para m
+            waste_meters = waste_area_m2 / fabric_width_m
+            
+            # Calcula o custo do desperdício
+            waste_cost = waste_meters * fabric['price_per_linear_meter'] * num_layers
+            
+            # Validações
+            if waste_cost < 0:
+                raise ValueError(f"Custo de desperdício negativo: {waste_cost}")
+            if waste_meters > layout['layout_length'] / 1000:
+                raise ValueError(f"Metros desperdiçados ({waste_meters}) maior que comprimento do layout ({layout['layout_length']/1000})")
+                
+            return {
+                'waste_cost': waste_cost,
+                'fabric_waste_area': waste_area_m2,
+                'fabric_waste_meters': waste_meters
+            }
+        except Exception as e:
+            logging.error(f"Erro no cálculo do custo de desperdício: {str(e)}")
+            raise
+
 
     # def calculate_layout_costs(self, layout, num_layers, fabric_cost):
-    #     """Calcula custos do layout"""
-    #     fabric = self.fabrics[layout['fabric']]
+    #     """
+    #     Calcula custos do layout separando claramente cada componente
         
-    #     return {
-    #         'cutting_cost': fabric['cost_per_cut_meter'] * layout['total_perimeter'] * num_layers / 1000,
-    #         'layout_cost': (
-    #             fabric['cost_per_layer'] * num_layers +
-    #             fabric['cost_per_layout_meter'] * layout['layout_length'] * num_layers / 1000
-    #         ),
-    #         'fabric_cost': fabric['price_per_linear_meter'] * layout['layout_length'] * num_layers / 1000,
-    #         'waste_cost': self.unit_waste_cost * layout['waste_area'] * num_layers / 1_000_000
-    #     }
+    #     Args:
+    #         layout (dict): Informações do layout
+    #         num_layers (int): Número de camadas
+    #         fabric_cost (float): Custo do tecido por metro linear
+        
+    #     Returns:
+    #         dict: Custos calculados separadamente
+    #     """
+    #     try:
+    #         fabric = self.fabrics[layout['fabric']]
+            
+    #         # 1. Custo do tecido
+    #         fabric_cost = (
+    #             fabric['price_per_linear_meter'] * 
+    #             layout['layout_length'] * 
+    #             num_layers / 1000
+    #         )
+            
+    #         # 2. Custo de corte
+    #         cutting_cost = (
+    #             fabric['cost_per_cut_meter'] * 
+    #             layout['total_perimeter'] * 
+    #             num_layers / 1000
+    #         )
+            
+    #         # 3. Custo de setup do layout (sem incluir custo por camada)
+    #         layout_cost = (
+    #             fabric['cost_per_layout_meter'] * 
+    #             layout['layout_length'] * 
+    #             num_layers / 1000
+    #         )
+            
+    #         # 4. Custo de desperdício
+    #         waste_cost = self._calculate_waste_cost(layout, num_layers)
+            
+    #         costs = {
+    #             'fabric_cost': fabric_cost,
+    #             'cutting_cost': cutting_cost,
+    #             'layout_cost': layout_cost,
+    #             'waste_cost': waste_cost
+    #         }
+            
+    #         # Valida os custos calculados
+    #         self._validate_costs(costs, layout, num_layers)
+            
+    #         return costs
+        
+    #     except Exception as e:
+    #         logging.error(f"Erro ao calcular custos do layout: {str(e)}")
+    #         raise
 
-    def calculate_layout_costs(self, layout, num_layers, fabric_cost):
-        """Calcula custos do layout"""
-        fabric = self.fabrics[layout['fabric']]
-        
-        # Calcula área total do layout em m²
-        total_area_m2 = layout['total_area'] / 1_000_000  # convertendo de mm² para m²
-        
-        # Calcula área desperdiçada em m²
-        waste_area_m2 = layout['waste_area'] / 1_000_000  # convertendo de mm² para m²
-        
-        # Calcula o custo do desperdício baseado no preço do tecido
-        # Primeiro, calculamos quanto do preço por metro linear corresponde ao desperdício
-        waste_proportion = waste_area_m2 / total_area_m2
-        waste_cost_per_meter = fabric['price_per_linear_meter'] * waste_proportion
-        
-        # Calcula o custo total do desperdício para este layout
-        waste_cost = waste_cost_per_meter * layout['layout_length'] * num_layers / 1000
+    def calculate_layout_costs(self, layout, num_layers):
+        """
+        Calcula os custos do layout considerando o número de camadas.
+        Todas as medidas de entrada estão em mm e mm² e são convertidas para m e m².
+        """
+        try:
+            fabric = self.fabrics[layout['fabric']]
+            
+            # Conversão de unidades (mm para m)
+            layout_length_m = layout['layout_length'] / 1000  # mm para m
+            waste_area_m2 = layout['waste_area'] / 1_000_000  # mm² para m²
+            fabric_width_m = layout['fabric_width'] / 1000    # mm para m
+            perimeter_m = layout['total_perimeter'] / 1000    # mm para m
+            
+            # Cálculo do desperdício em metros lineares
+            waste_meters = waste_area_m2 / fabric_width_m
+            
+            # Cálculo dos custos
+            costs = {
+                'fabric_cost': layout_length_m * fabric['price_per_linear_meter'] * num_layers,
+                'cutting_cost': perimeter_m * fabric['cost_per_cut_meter'] * num_layers,
+                'layout_cost': layout_length_m * fabric['cost_per_layout_meter'] * num_layers,
+                'layer_cost': fabric['cost_per_layer'] * num_layers,
+                'waste_cost': waste_meters * fabric['price_per_linear_meter'] * num_layers
+            }
+            
+            # Cálculo do custo total
+            costs['total_cost'] = sum(costs.values())
+            
+            # Métricas não monetárias para análise
+            costs['fabric_meters'] = layout_length_m * num_layers
+            costs['fabric_waste_area'] = waste_area_m2 * num_layers
+            costs['fabric_waste_meters'] = waste_meters * num_layers
+            costs['total_waste_percentage'] = (waste_area_m2 / (layout_length_m * fabric_width_m)) * 100
+            
+            logging.debug(f"""
+                Cálculo de custos para layout {layout['id']}:
+                - Comprimento: {layout_length_m:.3f} m
+                - Largura: {fabric_width_m:.3f} m
+                - Área desperdiçada: {waste_area_m2:.6f} m²
+                - Metros desperdiçados: {waste_meters:.6f} m
+                - Número de camadas: {num_layers}
+                - Custo do desperdício: R${costs['waste_cost']:.2f}
+            """)
+            
+            return costs
+            
+        except Exception as e:
+            logging.error(f"Erro no cálculo de custos do layout {layout.get('id')}: {str(e)}")
+            logging.error(f"Layout: {layout}")
+            raise
 
-        return {
-            'cutting_cost': fabric['cost_per_cut_meter'] * layout['total_perimeter'] * num_layers / 1000,
-            'layout_cost': (
-                fabric['cost_per_layer'] * num_layers +
-                fabric['cost_per_layout_meter'] * layout['layout_length'] * num_layers / 1000
-            ),
-            'fabric_cost': fabric['price_per_linear_meter'] * layout['layout_length'] * num_layers / 1000,
-            'waste_cost': waste_cost
-        }
+    def _calculate_layout_metrics(self, layout_data):
+        """Calcula métricas para um layout específico"""
+        try:
+            fabric = self.fabrics[layout_data['fabric']]
+            num_layers = layout_data['num_layers']
+            
+            # Cálculos básicos
+            length_meters = layout_data['length_meters'] / 1000  # mm para m
+            fabric_cost = length_meters * fabric['price_per_linear_meter'] * num_layers
+            cutting_cost = length_meters * fabric['cost_per_cut_meter'] * num_layers
+            layout_cost = length_meters * fabric['cost_per_layout_meter']
+            layer_cost = fabric['cost_per_layer'] * num_layers
+            
+            # Cálculo do desperdício
+            waste_metrics = self._calculate_waste_cost(layout_data, num_layers)
+            
+            return {
+                'fabric_cost': fabric_cost,
+                'cutting_cost': cutting_cost,
+                'layout_cost': layout_cost,
+                'layer_cost': layer_cost,
+                'waste_cost': waste_metrics['waste_cost'],  # ✅ Incluído aqui
+                'fabric_waste_area': waste_metrics['fabric_waste_area'],
+                'fabric_waste_meters': waste_metrics['fabric_waste_meters']
+            }
+        except Exception as e:
+            logging.error(f"Erro no cálculo das métricas do layout: {str(e)}")
+            raise
 
     def preprocess_layouts(self, demand, fabric_width):
         """Preprocess and filter layouts compatible with the demand and fabric width"""
@@ -149,100 +413,345 @@ class LayoutOptimizer:
 
 
 
-    def _process_solution(self, solver, layouts, x, overproduction, demand, pattern, piece, order):
-        """Processa a solução do solver"""
+    
+    # def _process_solution(self, solver, layouts, x, overproduction, demand, pattern, piece, order):
+    #     """
+    #     Processa a solução do solver e calcula todas as métricas
+        
+    #     Args:
+    #         solver: Solver do OR-Tools
+    #         layouts: Lista de layouts disponíveis
+    #         x: Variáveis de decisão (número de camadas por layout)
+    #         overproduction: Variáveis de superprodução
+    #         demand: Demanda por tamanho
+    #         pattern: Padrão sendo processado
+    #         piece: Informações da peça
+    #         order: Informações da ordem
+        
+    #     Returns:
+    #         dict: Resultado processado com todas as métricas
+    #     """
+    #     try:
+    #         result = {
+    #             'status': 'optimal',
+    #             'pattern': piece['pattern'],
+    #             'demand': piece['quantity'],
+    #             'production': {},
+    #             'overproduction': {},
+    #             'layouts_used': [],
+    #             'metrics': {
+    #                 'fabric_meters': 0,
+    #                 'fabric_cost': 0,
+    #                 'cutting_cost': 0,
+    #                 'layout_cost': 0,
+    #                 'layer_cost': 0,
+    #                 'waste_cost': 0,
+    #                 'total_cost': 0,
+    #                 'fabric_waste_area': 0,
+    #                 'fabric_waste_meters': 0
+    #             }
+    #         }
+
+    #         total_production = {size: 0 for size in self.sizes}
+    #         total_layers = 0
+
+    #         # Processa layouts utilizados
+    #         for layout in layouts:
+    #             num_layers = int(x[layout['id']].solution_value())
+    #             if num_layers > 0:
+    #                 fabric = self.fabrics[piece['fabrics'][0]]
+    #                 total_layers += num_layers
+                    
+    #                 # Calcula produção por tamanho
+    #                 production_per_size = {}
+    #                 for size in self.sizes:
+    #                     if size in layout['pieces'][0]['size_grade']:
+    #                         qty_per_layer = layout['pieces'][0]['size_grade'][size]
+    #                         production_per_size[size] = qty_per_layer * num_layers
+    #                         total_production[size] += production_per_size[size]
+
+    #                 # Calcula custos
+    #                 costs = self.calculate_layout_costs(layout, num_layers, fabric['price_per_linear_meter'])
+                    
+    #                 # Adiciona layout usado (corrigido para usar num_layers)
+    #                 layout_info = {
+    #                     'layout_id': layout['id'],
+    #                     'num_layers': num_layers,  # Alterado de 'layers' para 'num_layers'
+    #                     'length_meters': layout['layout_length'] / 1000,
+    #                     'utilization': layout['utilization'],
+    #                     'waste_area': layout['waste_area'] / 1_000_000,
+    #                     'production_per_size': production_per_size,
+    #                     'costs': costs
+    #                 }
+    #                 result['layouts_used'].append(layout_info)
+
+    #                 # Atualiza métricas
+    #                 result['metrics']['fabric_meters'] += layout['layout_length'] * num_layers / 1000
+    #                 result['metrics']['fabric_cost'] += costs['fabric_cost']
+    #                 result['metrics']['cutting_cost'] += costs['cutting_cost']
+    #                 result['metrics']['layout_cost'] += costs['layout_cost']
+    #                 result['metrics']['waste_cost'] += costs['waste_cost']
+    #                 result['metrics']['fabric_waste_area'] += layout['waste_area'] * num_layers / 1_000_000
+    #                 result['metrics']['fabric_waste_meters'] += (layout['waste_area'] / layout['fabric_width']) * num_layers / 1000
+
+    #         # Calcula custo por camada uma única vez
+    #         fabric = self.fabrics[piece['fabrics'][0]]
+    #         result['metrics']['layer_cost'] = fabric['cost_per_layer'] * total_layers
+
+    #         # Atualiza produção e superprodução
+    #         result['production'] = total_production
+    #         result['overproduction'] = {
+    #             size: max(0, total_production[size] - piece['quantity'][size])
+    #             for size in self.sizes if size in piece['quantity']
+    #         }
+
+    #         # Calcula custo total
+    #         result['metrics']['total_cost'] = (
+    #             result['metrics']['fabric_cost'] +
+    #             result['metrics']['cutting_cost'] +
+    #             result['metrics']['layout_cost'] +
+    #             result['metrics']['layer_cost'] +
+    #             result['metrics']['waste_cost']
+    #         )
+
+    #         # Valida resultado
+    #         self._validate_solution(result, piece['quantity'])
+
+    #         return result
+
+    #     except Exception as e:
+    #         logging.error(f"Erro ao processar solução: {str(e)}")
+    #         raise
+
+
+    def calculate_layout_costs(self, layout, num_layers):
+        """
+        Calcula os custos do layout considerando o número de camadas.
+        Retorna um dicionário com todos os custos e métricas.
+        """
         try:
-            result = {
-                'status': 'optimal',
-                'pattern': piece['pattern'],
-                'demand': piece['quantity'],
-                'production': {},
-                'overproduction': {},
-                'layouts_used': [],
-                'metrics': {
-                    'fabric_meters': 0,
-                    'fabric_cost': 0,
-                    'cutting_cost': 0,
-                    'layout_setup_cost': 0,
-                    'layer_cost': 0,
-                    'waste_cost': 0,
-                    'total_cost': 0,
-                    'fabric_waste_area': 0,
-                    'fabric_waste_meters': 0
-                }
+            fabric = self.fabrics[layout['fabric']]
+            
+            # Conversão de unidades
+            length_meters = layout['layout_length'] / 1000.0  # mm para m
+            waste_area_m2 = layout['waste_area'] / 1_000_000.0  # mm² para m²
+            perimeter_meters = layout['total_perimeter'] / 1000.0  # mm para m
+            
+            # Cálculo dos custos básicos
+            costs = {
+                'fabric_meters': length_meters * num_layers,
+                'fabric_cost': length_meters * fabric['price_per_linear_meter'] * num_layers,
+                'cutting_cost': perimeter_meters * fabric['cost_per_cut_meter'] * num_layers,
+                'layout_cost': length_meters * fabric['cost_per_layout_meter'] * num_layers,  # Custo de setup do layout
+                'layer_cost': fabric['cost_per_layer'] * num_layers,
+                
+                # Métricas de desperdício
+                'fabric_waste_area': waste_area_m2 * num_layers,
+                'fabric_waste_meters': (waste_area_m2 / (layout['fabric_width'] / 1000)) * num_layers,
+                'waste_cost': waste_area_m2 * fabric['price_per_square_meter'] * num_layers
             }
-
-            # Inicializa produção total por tamanho
-            total_production = {size: 0 for size in self.sizes}
-
-            # Processa layouts utilizados
-            for layout in layouts:
-                num_layers = int(x[layout['id']].solution_value())
-                if num_layers > 0:
-                    fabric = self.fabrics[piece['fabrics'][0]]
-                    
-                    # Calcula produção por tamanho para este layout
-                    production_per_size = {}
-                    for size in self.sizes:
-                        if size in layout['pieces'][0]['size_grade']:
-                            qty_per_layer = layout['pieces'][0]['size_grade'][size]
-                            production_per_size[size] = qty_per_layer * num_layers
-                            total_production[size] += production_per_size[size]
-
-                    # Calcula custos e métricas
-                    costs = self.calculate_layout_costs(layout, num_layers, fabric['price_per_linear_meter'])
-                    
-                    # Adiciona layout usado
-                    layout_info = {
-                        'layout_id': layout['id'],
-                        'layers': num_layers,
-                        'length': layout['layout_length'],
-                        'utilization': layout['utilization'],
-                        'waste_area': layout['waste_area'],
-                        'production_per_size': production_per_size,
-                        'costs': costs
-                    }
-                    result['layouts_used'].append(layout_info)
-
-                    # Atualiza métricas
-                    result['metrics']['fabric_meters'] += layout['layout_length'] * num_layers / 1000
-                    result['metrics']['fabric_cost'] += costs['fabric_cost']
-                    result['metrics']['cutting_cost'] += costs['cutting_cost']
-                    result['metrics']['layout_setup_cost'] += costs['layout_cost']
-                    result['metrics']['layer_cost'] += fabric['cost_per_layer'] * num_layers
-                    result['metrics']['waste_cost'] += costs['waste_cost']
-                    result['metrics']['fabric_waste_area'] += layout['waste_area'] * num_layers / 1_000_000
-                    result['metrics']['fabric_waste_meters'] += (layout['waste_area'] / layout['fabric_width']) * num_layers / 1000
-
-            # Atualiza produção e superprodução
-            result['production'] = total_production
-            result['overproduction'] = {
-                size: max(0, total_production[size] - piece['quantity'][size])
-                for size in self.sizes if size in piece['quantity']
-            }
-
-            # Calcula custo total
-            result['metrics']['total_cost'] = (
-                result['metrics']['fabric_cost'] +
-                result['metrics']['cutting_cost'] +
-                result['metrics']['layout_setup_cost'] +
-                result['metrics']['layer_cost'] +
-                result['metrics']['waste_cost']
-            )
-
-            return result
-
+            
+            # Validações
+            for key, value in costs.items():
+                if value < 0:
+                    raise ValueError(f"Custo negativo calculado para {key}: {value}")
+                if isinstance(value, float):
+                    costs[key] = round(value, 6)
+            
+            logging.debug(f"""
+                Custos calculados para layout {layout['id']}:
+                - Comprimento: {length_meters:.3f} m
+                - Área desperdiçada: {waste_area_m2:.6f} m²
+                - Número de camadas: {num_layers}
+                - Custo do tecido: R${costs['fabric_cost']:.2f}
+                - Custo de corte: R${costs['cutting_cost']:.2f}
+                - Custo de setup: R${costs['layout_cost']:.2f}
+                - Custo por camada: R${costs['layer_cost']:.2f}
+                - Custo do desperdício: R${costs['waste_cost']:.2f}
+            """)
+            
+            return costs
+            
         except Exception as e:
-            logging.error(f"Erro ao processar solução: {str(e)}")
+            logging.error(f"Erro no cálculo de custos do layout {layout.get('id')}: {str(e)}")
             raise
 
-    
+
+    def _process_solution(self, solver, x, y, overproduction, filtered_layouts, demand_quantity, pattern):
+        try:
+            result = {
+                'pattern': pattern,
+                'metrics': {
+                    'fabric_meters': 0.0,
+                    'fabric_cost': 0.0,
+                    'cutting_cost': 0.0,
+                    'layout_cost': 0.0,
+                    'layer_cost': 0.0,
+                    'waste_cost': 0.0,
+                    'total_cost': 0.0,
+                    'fabric_waste_area': 0.0,
+                    'fabric_waste_meters': 0.0,
+                    'total_waste_percentage': 0.0
+                },
+                'demand': demand_quantity.copy(),
+                'production': {size: 0 for size in self.sizes},
+                'overproduction': {size: 0 for size in self.sizes},
+                'layouts_used': []
+            }
+
+            for layout in filtered_layouts:
+                num_layers = int(x[layout['id']].solution_value())
+                if num_layers > 0:
+                    # Calcula os custos primeiro
+                    layout_costs = self.calculate_layout_costs(layout, num_layers)
+                    
+                    # Conversões corretas de unidade
+                    length_meters = layout['layout_length'] / 1000.0  # mm para m
+                    waste_area_m2 = layout['waste_area'] / 1_000_000.0  # mm² para m²
+                    
+                    # Prepara informações do layout
+                    layout_info = {
+                        'layout_id': layout['id'],
+                        'num_layers': num_layers,
+                        'length_meters': length_meters,
+                        'utilization': layout['utilization'],
+                        'waste_area': waste_area_m2,
+                        'production_per_size': {},
+                        'costs': {
+                            'fabric_cost': layout_costs['fabric_cost'],
+                            'cutting_cost': layout_costs['cutting_cost'],
+                            'layout_cost': layout_costs['layout_cost'],  
+                            'layer_cost': layout_costs['layer_cost'],
+                            'waste_cost': layout_costs['waste_cost']
+                        }
+                    }
+                    
+                    # Calcula produção por tamanho
+                    for size in self.sizes:
+                        if size in layout['pieces'][0]['size_grade']:
+                            qty = layout['pieces'][0]['size_grade'][size] * num_layers
+                            layout_info['production_per_size'][size] = qty
+                            result['production'][size] = result['production'].get(size, 0) + qty
+                    
+                    # Atualiza métricas totais
+                    result['metrics']['fabric_meters'] += layout_costs['fabric_meters']
+                    result['metrics']['fabric_cost'] += layout_costs['fabric_cost']
+                    result['metrics']['cutting_cost'] += layout_costs['cutting_cost']
+                    result['metrics']['layout_cost'] += layout_costs['layout_cost']
+                    result['metrics']['layer_cost'] += layout_costs['layer_cost']
+                    result['metrics']['waste_cost'] += layout_costs['waste_cost']
+                    result['metrics']['fabric_waste_area'] += layout_costs['fabric_waste_area']
+                    result['metrics']['fabric_waste_meters'] += layout_costs['fabric_waste_meters']
+                    
+                    result['layouts_used'].append(layout_info)
+            
+            # Calcula superprodução
+            for size in self.sizes:
+                if size in demand_quantity:
+                    result['overproduction'][size] = max(0, result['production'][size] - demand_quantity[size])
+            
+            # Calcula custo total
+            result['metrics']['total_cost'] = sum([
+                result['metrics']['fabric_cost'],
+                result['metrics']['cutting_cost'],
+                result['metrics']['layout_cost'],
+                result['metrics']['layer_cost'],
+                result['metrics']['waste_cost']
+            ])
+            
+            # Calcula percentual total de desperdício
+            if result['metrics']['fabric_meters'] > 0:
+                result['metrics']['total_waste_percentage'] = (
+                    result['metrics']['fabric_waste_area'] / 
+                    result['metrics']['fabric_meters']
+                ) * 100
+                
+            return result
+            
+        except Exception as e:
+            logging.error(f"Erro no processamento da solução: {str(e)}")
+            raise
+
+    def _validate_final_results(self, result):
+        """Validação final dos resultados"""
+        try:
+            # Valida produção vs demanda
+            for size in self.sizes:
+                if result['production'][size] < result['demand'][size]:
+                    raise ValueError(f"Produção insuficiente para tamanho {size}")
+                if result['production'][size] > result['demand'][size] * 1.05:
+                    raise ValueError(f"Superprodução excessiva para tamanho {size}")
+                    
+            # Valida custos totais
+            total_cost = sum([
+                result['metrics']['fabric_cost'],
+                result['metrics']['cutting_cost'],
+                result['metrics']['layout_cost'],
+                result['metrics']['layer_cost'],
+                result['metrics']['waste_cost']
+            ])
+            
+            if abs(total_cost - result['metrics']['total_cost']) > 0.01:
+                raise ValueError(
+                    f"Inconsistência no custo total: "
+                    f"calculado {total_cost:.2f}, "
+                    f"informado {result['metrics']['total_cost']:.2f}"
+                )
+                
+        except Exception as e:
+            logging.error(f"Erro na validação final: {str(e)}")
+            raise
+
+    def _validate_units(self, result):
+        """Valida as unidades das métricas calculadas"""
+        if result['metrics']['fabric_meters'] < 0:
+            raise ValueError("Metros de tecido não pode ser negativo")
+        
+        if result['metrics']['fabric_waste_area'] < 0:
+            raise ValueError("Área desperdiçada não pode ser negativa")
+        
+        if result['metrics']['fabric_waste_meters'] < 0:
+            raise ValueError("Metros desperdiçados não pode ser negativo")
+        
+        if result['metrics']['total_waste_percentage'] < 0 or result['metrics']['total_waste_percentage'] > 100:
+            raise ValueError("Percentual de desperdício deve estar entre 0 e 100")
+        
+        for layout in result['layouts_used']:
+            if layout['length_meters'] <= 0:
+                raise ValueError(f"Comprimento inválido no layout {layout['layout_id']}")
+            if layout['waste_area'] < 0:
+                raise ValueError(f"Área desperdiçada inválida no layout {layout['layout_id']}")
     
     def optimize_order(self, order):
-        """Otimiza uma ordem específica permitindo múltiplos layouts"""
+        """
+        Optimize an specific order allowing multiple layouts
+        
+        Calculation formulas:
+
+            1. Fabric cost:
+        fabric_cost = price_per_linear_meter * layout_length * num_layers / 1000
+
+            2. Cutting cost:
+        cutting_cost = cost_per_cut_meter * total_perimeter * num_layers / 1000
+
+            3. Setup cost:
+        setup_cost = cost_per_layer * num_layers + 
+                        cost_per_layout_meter * layout_length * num_layers / 1000
+
+            4. Waste cost:
+        waste_cost = (waste_area_m2 * fabric_price_per_m2 * num_layers * waste_penalty_factor)
+
+            5. Total cost:
+        total_cost = fabric_cost + cutting_cost + setup_cost + layer_cost + waste_cost
+        
+        """
         try:
+            logging.info("=== Iniciando Otimização ===")
+            logging.info(f"Demanda por tamanho: {order['pieces'][0]['quantity']}")
+            self._validate_input_data(order)
+
             piece = order['pieces'][0]
-            pattern = piece['pattern']
+            pattern = order['pattern']
             demand_quantity = piece['quantity']
             fabric = piece['fabrics'][0]
             
@@ -335,27 +844,42 @@ class LayoutOptimizer:
    
 
             # Função objetivo atualizada: minimizar desperdício e custos reais + penalidade por superprodução
-            objective = (
-                # Custos reais
+            # objective = (
+            #     solver.Sum([
+            #         x[layout['id']] * (
+            #             # Custos base
+            #             layout['layout_length'] * self.fabrics[layout['fabric']]['price_per_linear_meter'] / 1000 +
+            #             layout['total_perimeter'] * self.fabrics[layout['fabric']]['cost_per_cut_meter'] / 1000 +
+            #             self.fabrics[layout['fabric']]['cost_per_layer'] +
+            #             self.fabrics[layout['fabric']]['cost_per_layout_meter'] * layout['layout_length'] / 1000 +
+                        
+            #             # Penalidade por desperdício
+            #             (layout['waste_area'] / layout['total_area']) * (
+            #                 self.waste_penalty_factor * 
+            #                 layout['layout_length'] * 
+            #                 self.fabrics[layout['fabric']]['price_per_linear_meter'] / 1000
+            #             )
+            #         )
+            #         for layout in filtered_layouts
+            #     ]) +
+            #     # Penalidade por múltiplos layouts 
+            #     self.layout_change_penalty * solver.Sum([y[l['id']] for l in filtered_layouts]) +
+            #     # Penalidade por superprodução 
+            #     solver.Sum([
+            #         overproduction[size] * self.fabrics[fabric]['price_per_linear_meter'] * self.waste_penalty_factor
+            #         for size in self.sizes
+            #     ])
+            # )
+
+             # Função objetivo corrigida
+            objective = solver.Sum([
+                x[layout['id']] * float(layout['waste_area']) / 1_000_000 +  # Converte para float e m²
                 solver.Sum([
-                    x[layout['id']] * (
-                        layout['layout_length'] * self.fabrics[layout['fabric']]['price_per_linear_meter'] / 1000 +
-                        layout['total_perimeter'] * self.fabrics[layout['fabric']]['cost_per_cut_meter'] / 1000 +
-                        self.fabrics[layout['fabric']]['cost_per_layer'] +
-                        self.fabrics[layout['fabric']]['cost_per_layout_meter'] * layout['layout_length'] / 1000 +
-                        # Adicionar penalidade por baixa utilização
-                        (1 - layout['utilization']) * self.waste_penalty_factor * 1000
-                    )
-                    for layout in filtered_layouts
-                ]) +
-                # Penalidade por usar múltiplos layouts
-                self.layout_change_penalty * solver.Sum([y[l['id']] for l in filtered_layouts]) +
-                # Penalização por superprodução
-                solver.Sum([
-                    overproduction[size] * 10000
+                    overproduction[size] * 0.01 * float(layout['waste_area']) / float(layout['total_area'])
                     for size in self.sizes
                 ])
-            )
+                for layout in filtered_layouts
+            ])
 
             # Adiciona restrição de número mínimo de camadas
             for layout in filtered_layouts:
@@ -407,16 +931,17 @@ class LayoutOptimizer:
                         logging.info(f"  {size}: {total_production[size]} (Demanda: {demand_quantity[size]})")
                 
                 if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
+                    # Processa solução - Corrigindo a chamada
                     result = self._process_solution(
                         solver=solver,
-                        layouts=filtered_layouts,
                         x=x,
-                        overproduction=overproduction, 
-                        demand=demand_quantity,
-                        pattern=pattern,
-                        piece=piece,
-                        order=order
+                        y=y,
+                        overproduction=overproduction,
+                        filtered_layouts=filtered_layouts, 
+                        demand_quantity=demand_quantity,
+                        pattern=pattern
                     )
+            
                     
                     # Adiciona informações do solver
                     result['solver_info'] = {
@@ -427,6 +952,15 @@ class LayoutOptimizer:
                         'iterations': solver.iterations(),
                         'wall_time': solver.WallTime()/1000.0
                     }
+                    self._validate_solution(result, demand_quantity)
+
+                     
+                    logging.info("=== Resultados da Otimização ===")
+                    logging.info(f"Status: {status}")
+                    logging.info(f"Valor objetivo: {solver.Objective().Value()}")
+                    logging.info("Custos detalhados:")
+                    for metric, value in result['metrics'].items():
+                        logging.info(f"  {metric}: {value:.2f}")
                     
                     return result
                 
@@ -437,6 +971,34 @@ class LayoutOptimizer:
             import traceback
             logging.error(traceback.format_exc())
             return None
+    
+    def _validate_input_data(self, order):
+        """Valida dados de entrada"""
+        if not order.get('pieces'):
+            raise ValueError("Ordem deve conter peças")
+            
+        piece = order['pieces'][0]
+        if not all(key in piece for key in ['pattern', 'quantity', 'fabrics']):
+            raise ValueError("Dados da peça incompletos")
+            
+        if not all(size in piece['quantity'] for size in self.sizes):
+            raise ValueError("Quantidade deve ser especificada para todos os tamanhos")
+
+    def _validate_solution(self, solution, demand):
+        """Valida resultado da otimização"""
+        if not solution:  # ✅ Verifica se solution não é None
+            raise ValueError("Solução inválida (None)")
+            
+        # Verifica se todas as métricas necessárias existem
+        required_metrics = [
+            'fabric_meters', 'fabric_cost', 'cutting_cost', 
+            'layout_cost', 'layer_cost', 'waste_cost',
+            'total_cost'
+        ]
+        
+        for metric in required_metrics:
+            if metric not in solution['metrics']:
+                raise ValueError(f"Métrica ausente: {metric}")
         
 
     def export_results(self, results):
@@ -445,15 +1007,16 @@ class LayoutOptimizer:
         ws = wb.active
         ws.title = "Resultados"
         
-        # Cabeçalhos
+        # Cabeçalhos ajustados para maior clareza
         headers = [
             "Ordem", "Padrão", "Layout", "Camadas", 
             "Comprimento Total (m)", "Aproveitamento (%)",
             "P", "M", "G", "GG",
-            "Custo Total", 
+            "Custo Total (R$)", 
             "Tecido Total (m)",
             "Desperdício (m²)",
-            "Desperdício (m)"
+            "Desperdício (m)",
+            "Desperdício (%)"  
         ]
         ws.append(headers)
         
@@ -462,21 +1025,22 @@ class LayoutOptimizer:
             if result:
                 for layout in result['layouts_used']:
                     row = [
-                    order_id,
-                    result['pattern'],
-                    layout['layout_id'],
-                    layout['layers'],
-                    layout['length']/1000,
-                    layout['utilization']*100,
-                    layout['production_per_size'].get('P', 0),
-                    layout['production_per_size'].get('M', 0),
-                    layout['production_per_size'].get('G', 0),
-                    layout['production_per_size'].get('GG', 0),
-                    result['metrics']['total_cost'],
-                    result['metrics']['fabric_meters'],
-                    result['metrics']['fabric_waste_area'],
-                    result['metrics']['fabric_waste_meters']
-                ]
+                        order_id,
+                        result['pattern'],
+                        layout['layout_id'],
+                        layout['num_layers'],
+                        layout['length_meters'],
+                        f"{layout['utilization']*100:.2f}",  
+                        layout['production_per_size'].get('P', 0),
+                        layout['production_per_size'].get('M', 0),
+                        layout['production_per_size'].get('G', 0),
+                        layout['production_per_size'].get('GG', 0),
+                        f"R$ {result['metrics']['total_cost']:.2f}",  
+                        f"{result['metrics']['fabric_meters']:.3f}",
+                        f"{result['metrics']['fabric_waste_area']:.3f}",
+                        f"{result['metrics']['fabric_waste_meters']:.3f}",
+                        f"{result['metrics']['total_waste_percentage']:.2f}%"  
+                    ]
                     ws.append(row)
         
         # Salva arquivo
@@ -497,24 +1061,26 @@ class LayoutOptimizer:
     
 
     def export_results_json(self, results):
-        """Exporta resultados para JSON"""
         try:
             output = []
             for order_id, result in results.items():
                 if result:
+                    metrics = result['metrics'].copy()
+                    metrics['total_waste_percentage'] = f"{metrics['total_waste_percentage']:.2f}%"
                     output_item = {
                         "order_id": order_id,
-                        "pattern": self.remove_accents(result['pattern']),
+                        "pattern": result['pattern'],
                         "metrics": {
                             "fabric_meters": result['metrics']['fabric_meters'],
                             "fabric_cost": result['metrics']['fabric_cost'],
                             "cutting_cost": result['metrics']['cutting_cost'],
-                            "layout_setup_cost": result['metrics']['layout_setup_cost'],
+                            "layout_cost": result['metrics']['layout_cost'],
                             "layer_cost": result['metrics']['layer_cost'],
-                            "waste_cost": result['metrics']['waste_cost'],
+                            "waste_cost": result['metrics']['waste_cost'],  
                             "total_cost": result['metrics']['total_cost'],
-                            "fabric_waste_area": result['metrics']['fabric_waste_area'],  # Atualizado
-                            "fabric_waste_meters": result['metrics']['fabric_waste_meters']  # Adicionado
+                            "fabric_waste_area": result['metrics']['fabric_waste_area'],
+                            "fabric_waste_meters": result['metrics']['fabric_waste_meters'],
+                            "total_waste_percentage": result['metrics']['total_waste_percentage']
                         },
                         "demand": {
                             size: qty for size, qty in result.get('demand', {}).items()
@@ -528,10 +1094,10 @@ class LayoutOptimizer:
                         "layouts_used": [
                             {
                                 "layout_id": layout['layout_id'],
-                                "num_layers": layout['layers'],
-                                "length_meters": layout['length'] / 1000,
+                                "num_layers": layout['num_layers'],
+                                "length_meters": layout['length_meters'], 
                                 "utilization": layout['utilization'],
-                                "waste_area": layout['waste_area'] / 1_000_000,  # mm² para m²
+                                "waste_area": layout['waste_area'] ,  
                                 "production_per_size": layout['production_per_size'],
                                 "costs": {
                                     "fabric_cost": layout['costs']['fabric_cost'],

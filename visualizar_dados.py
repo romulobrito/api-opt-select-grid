@@ -78,19 +78,42 @@ def view_results():
         results = response.json()
         
         if results["status"] == "success":
-            print("\nOptimization Results:")
+            print("\nResultados da Otimização:")
             for order_id, result in results["data"].items():
                 if result:
-                    print(f"\nPeça: {result['pattern']}")
-                    print("Produção por tamanho:")
-                    for size, qty in result['production'].items():
-                        print(f"  {size}: {qty}")
-                    print("Métricas:")
+                    print(f"\nPeça: {result.get('pattern', 'Desconhecido')}")
+                    
+                    print("\nDemanda vs Produção:")
+                    for size in result['production'].keys():
+                        demand = result['demand'].get(size, 0)
+                        prod = result['production'].get(size, 0)
+                        over = result['overproduction'].get(size, 0)
+                        print(f"  {size}: Demanda={demand}, Produção={prod} (Excesso: {over})")
+                    
                     metrics = result['metrics']
-                    print(f"  Custo total: {formatar_moeda(metrics['total_cost'])}")
-                    print(f"  Tecido total utilizado: {metrics['fabric_meters']:.2f} metros lineares")
-                    print(f"  Desperdício: {metrics['fabric_waste_area']:.2f} m²")
-                    print(f"  Desperdício: {metrics['fabric_waste_meters']:.2f} metros lineares")
+                    print("\nMétricas de Desperdício:")
+                    print(f"  Área desperdiçada: {metrics['fabric_waste_area']:.4f} m²")
+                    print(f"  Comprimento desperdiçado: {metrics['fabric_waste_meters']:.4f} m")
+                    print(f"  Percentual de desperdício: {metrics['total_waste_percentage']:.1f}%")
+                    
+                    print("\nCustos (KPIs):")
+                    try:
+                        print(f"  Custo do tecido: {formatar_moeda(metrics['fabric_cost'])}")
+                        print(f"  Custo de corte: {formatar_moeda(metrics['cutting_cost'])}")
+                        print(f"  Custo de setup: {formatar_moeda(metrics['layout_setup_cost'])}")
+                        print(f"  Custo por camada: {formatar_moeda(metrics['layer_cost'])}")
+                        print(f"  Custo do desperdício: {formatar_moeda(metrics['waste_cost'])}")  
+                        print(f"  Custo total: {formatar_moeda(metrics['total_cost'])}")
+                    except KeyError as e:
+                        print(f"Erro: Métrica ausente: {e}")
+                    
+                    print("\nLayouts Utilizados:")
+                    for layout in result.get('layouts_used', []):
+                        print(f"\n  Layout {layout['layout_id']}:")
+                        print(f"    Camadas: {layout['num_layers']}")
+                        print(f"    Comprimento: {layout['length_meters']:.3f} m")
+                        print(f"    Aproveitamento: {layout['utilization']*100:.1f}%")
+                        print(f"    Desperdício: {layout['waste_area']:.4f} m²")
                 else:
                     print(f"\nPeça {order_id}: Sem solução viável")
 
