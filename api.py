@@ -7,12 +7,12 @@ from typing import Dict, List
 from select_grids_layers import LayoutOptimizer
 from auth import (
     User,
-    Token, 
+    Token,
     authenticate_user,
     create_access_token,
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    users_db
+    users_db,
 )
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -32,16 +32,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """Authenticate user and return access token.
-    
+
     Args:
         form_data (OAuth2PasswordRequestForm): The form data containing username and password.
-        
+
     Returns:
         dict: A dictionary containing the access token and token type.
-        
+
     Raises:
         HTTPException: If authentication fails.
     """
@@ -58,8 +59,10 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 class GeneralConfiguration(BaseModel):
     """Model for general configuration settings."""
+
     optimality_gap: float = Field(default=0.01, ge=0, le=1)
     solver_time_limit: int = Field(default=6, ge=1)
     max_memory_mb: int = Field(default=2048, ge=1)
@@ -70,8 +73,10 @@ class GeneralConfiguration(BaseModel):
     min_layers_per_layout: int = Field(default=5, ge=1)
     waste_penalty_factor: float = Field(default=2.0, ge=0)
 
+
 class Layout(BaseModel):
     """Model for layout information."""
+
     id: int
     utilization: float
     fabric_width: int
@@ -83,8 +88,10 @@ class Layout(BaseModel):
     total_area: int
     pieces: List[Dict]
 
+
 class Fabric(BaseModel):
     """Model for fabric information."""
+
     fabric: str
     cost_per_cut_meter: float
     price_per_linear_meter: float
@@ -93,41 +100,45 @@ class Fabric(BaseModel):
     fabric_width: int
     max_layers: int
 
+
 class Piece(BaseModel):
     """Model for piece information."""
+
     pattern: str
     fabrics: List[str]
     quantity: Dict[str, int]
 
+
 class OptimizationConfig(BaseModel):
     """Model for optimization configuration."""
+
     general_configuration: GeneralConfiguration
     layouts: List[Layout]
     fabrics: List[Fabric]
     pieces: List[Piece]
 
+
 @app.post("/optimize")
 async def optimize_production(
-    parameters: OptimizationConfig, 
-    current_user: User = Depends(get_current_user)
+    parameters: OptimizationConfig, current_user: User = Depends(get_current_user)
 ):
     """Run production optimization based on provided parameters.
-    
+
     Args:
         parameters (OptimizationConfig): The optimization configuration parameters.
         current_user (User): The current authenticated user.
-        
+
     Returns:
         dict: A dictionary containing the status, message, and results of the optimization.
-        
+
     Raises:
         HTTPException: If validation or processing fails.
     """
     try:
         input_data = parameters.dict()
-        
+
         optimizer = LayoutOptimizer(input_data)
-        results = optimizer.optimize_production()  
+        results = optimizer.optimize_production()
 
         if any(results.values()):
             optimizer.export_results(results)
@@ -136,7 +147,7 @@ async def optimize_production(
         return {
             "status": "success",
             "message": "Optimization completed successfully",
-            "data": results
+            "data": results,
         }
 
     except ValueError as ve:
@@ -144,10 +155,11 @@ async def optimize_production(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/")
 async def root():
     """Root endpoint providing API information.
-    
+
     Returns:
         dict: A dictionary containing API information and available endpoints.
     """
@@ -157,11 +169,11 @@ async def root():
         "parameters": {
             "layout_change_penalty": "Penalty for using different layouts (default: 1000)",
             "min_layers_per_layout": "Minimum number of layers per layout (default: 5)",
-            "waste_penalty_factor": "Multiplier for waste cost (default: 2.0)"
+            "waste_penalty_factor": "Multiplier for waste cost (default: 2.0)",
         },
         "endpoints": [
             "/token - POST - Authentication",
             "/optimize - POST - Run production optimization",
-            "/ - GET - API Information"
-        ]
+            "/ - GET - API Information",
+        ],
     }
