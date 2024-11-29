@@ -69,13 +69,35 @@ class LayoutOptimizer:
         self.config = input_data['general_configuration']
         self.layouts = input_data.get('layout', input_data.get('layouts', []))
         self.fabrics = {f['fabric']: f for f in input_data['fabrics']}
-        self.pieces = input_data['pieces']  
-        self.sizes = ["P", "M", "G", "GG"]
+        self.pieces = input_data['pieces']
         
-        # Parâmetros de otimização
+        # Extrair tamanhos de todas as fontes possíveis
+        sizes_from_pieces = set()
+        sizes_from_layouts = set()
+        
+        # Extrair tamanhos das peças (demanda)
+        for piece in self.pieces:
+            if 'quantity' in piece:
+                sizes_from_pieces.update(piece['quantity'].keys())
+        
+        # Extrair tamanhos dos layouts
+        for layout in self.layouts:
+            for piece in layout['pieces']:
+                if 'size_grade' in piece:
+                    sizes_from_layouts.update(piece['size_grade'].keys())
+        
+        # Combinar todos os tamanhos encontrados
+        self.sizes = sorted(sizes_from_pieces.union(sizes_from_layouts))
+        
+        if not self.sizes:
+            raise ValueError("Não foi possível extrair os tamanhos dos dados de entrada")
+        
+        logging.info(f"Tamanhos extraídos automaticamente: {self.sizes}")
+        
+        # Restante da inicialização...
         self.overproduction_penalty = self.config.get('overproduction_percentage', 0.05)
         self.unit_waste_cost = self.config.get('waste_cost', 0.1)
-        self.optimality_gap = self.config.get('optimality_gap', 0.01) 
+        self.optimality_gap = self.config.get('optimality_gap', 0.01)
         self.max_memory_mb = self.config.get('max_memory_mb', 2048)
         
         # Novos parâmetros
@@ -89,7 +111,7 @@ class LayoutOptimizer:
         logging.info(f"  Min layers per layout: {self.min_layers_per_layout}")
         logging.info(f"  Waste penalty factor: {self.waste_penalty_factor}")
 
-         # Validação dos novos parâmetros
+        # Validação dos novos parâmetros
         if self.layout_change_penalty < 0:
             raise ValueError("layout_change_penalty deve ser não-negativo")
         
@@ -104,6 +126,7 @@ class LayoutOptimizer:
                 fabric['price_per_linear_meter'] / (fabric['fabric_width'] / 1000)
             )
             logging.info(f"Preço por m² do tecido {fabric['fabric']}: R${fabric['price_per_square_meter']:.2f}")
+       
 
 
 
@@ -670,9 +693,9 @@ class LayoutOptimizer:
                     'fabric_waste_meters': 0.0,
                     'total_waste_percentage': 0.0
                 },
-                'demand': demand_quantity.copy(),
-                'production': {size: 0 for size in self.sizes},
-                'overproduction': overproduction.copy(),
+                'demand': {size: demand_quantity.get(size, 0) for size in self.sizes},  # Modificado
+                'production': {size: 0 for size in self.sizes},  # Modificado
+                'overproduction': {size: 0 for size in self.sizes},  # Modificado
                 'layouts_used': []
             }
 
@@ -703,7 +726,7 @@ class LayoutOptimizer:
                         'length_meters': metrics['length_meters'],
                         'utilization': layout['utilization'],
                         'waste_area': waste_metrics['fabric_waste_area'],
-                        'production_per_size': {},
+                        'production_per_size': {size: 0 for size in self.sizes},  # Modificado
                         'costs': layout_costs
                     }
                     
@@ -852,6 +875,10 @@ class LayoutOptimizer:
                 and any(p['pattern'] == pattern for p in layout['pieces'])
             ]
             filtered_layouts.sort(key=lambda x: x['utilization'], reverse=True)
+
+            # Valida tamanhos em todos os layouts filtrados
+            for layout in filtered_layouts:
+                self._validate_layout_sizes(layout)
             
             # Log dos layouts disponíveis
             for layout in filtered_layouts:
@@ -906,7 +933,7 @@ class LayoutOptimizer:
                     solver.Add(total_production >= demand_quantity[size])
                     
                     # Limita excesso de produção
-                    solver.Add(total_production <= demand_quantity[size] * 1.05)  # 5% máximo
+                    solver.Add(total_production <= demand_quantity[size] * (1 + self.overproduction_penalty))  # 5% máximo
                     
                     logging.info(f"Configurada restrição para tamanho {size}:")
                     logging.info(f"  Demanda: {demand_quantity[size]}")
@@ -1069,8 +1096,19 @@ class LayoutOptimizer:
         if not all(key in piece for key in ['pattern', 'quantity', 'fabrics']):
             raise ValueError("Dados da peça incompletos")
             
-        if not all(size in piece['quantity'] for size in self.sizes):
-            raise ValueError("Quantidade deve ser especificada para todos os tamanhos")
+        # Validar se todos os tamanhos da demanda estão nos tamanhos extraídos
+        demand_sizes = set(piece['quantity'].keys())
+        if not demand_sizes.issubset(set(self.sizes)):
+            invalid_sizes = demand_sizes - set(self.sizes)
+            raise ValueError(f"Tamanhos inválidos na demanda: {invalid_sizes}")
+    
+    def _validate_layout_sizes(self, layout):
+        """Valida se os tamanhos no layout são compatíveis com os tamanhos extraídos"""
+        for piece in layout['pieces']:
+            layout_sizes = set(piece['size_grade'].keys())
+            if not layout_sizes.issubset(set(self.sizes)):
+                invalid_sizes = layout_sizes - set(self.sizes)
+                raise ValueError(f"Tamanhos inválidos no layout {layout['id']}: {invalid_sizes}")
 
     def _validate_solution(self, solution, demand):
         """Valida resultado da otimização"""

@@ -37,7 +37,7 @@
                 {
                     "pattern": "calça",
                     "size_grade": {
-                        "P": 2,
+                        "PP": 2,
                         "M": 2,
                         "G": 2,
                         "GG": 1
@@ -59,7 +59,7 @@
                 {
                     "pattern": "calça",
                     "size_grade": {
-                        "P": 1,
+                        "PP": 1,
                         "M": 2,
                         "G": 1,
                         "GG": 2
@@ -81,7 +81,7 @@
                 {
                     "pattern": "calça",
                     "size_grade": {
-                        "P": 2,
+                        "PP": 2,
                         "M": 3,
                         "G": 1,
                         "GG": 2
@@ -103,7 +103,7 @@
                 {
                     "pattern": "calça",
                     "size_grade": {
-                        "P": 2,
+                        "PP": 2,
                         "M": 1,
                         "G": 3,
                         "GG": 1
@@ -117,7 +117,7 @@
             "pattern": "calça",
             "fabrics": ["algodão"],
             "quantity": {
-                "P": 58,
+                "PP": 58,
                 "M": 79,
                 "G": 57,
                 "GG": 64
