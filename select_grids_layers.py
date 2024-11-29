@@ -1521,7 +1521,7 @@ def main():
     """
     try:
         # Load input data
-        with open('dados_entrada.json', 'r', encoding='utf-8') as f:
+        with open('input_data.json', 'r', encoding='utf-8') as f:
             input_data = json.load(f)
         
         logging.info("Starting production optimization")

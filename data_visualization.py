@@ -49,7 +49,7 @@ def view_results():
     url = "http://localhost:8000/optimize"
     
     try:
-        with open('dados_entrada.json', 'r', encoding='utf-8') as f:  
+        with open('input_data.json', 'r', encoding='utf-8') as f:  
             data = json.load(f)
         
         # Validação básica dos dados
