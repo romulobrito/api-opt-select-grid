@@ -3,16 +3,46 @@
         "order_id": "order_1",
         "pattern": "calça",
         "metrics": {
-            "fabric_meters": 279.937,
-            "fabric_cost": 5290.81,
-            "cutting_cost": 158.33,
-            "layout_cost": 83.98,
-            "layer_cost": 47.5,
-            "waste_cost": 562.51,
-            "total_cost": 6143.12,
-            "fabric_waste_area": 44.6434,
-            "fabric_waste_meters": 29.7623,
-            "total_waste_percentage": 10.63
+            "fabric_meters": {
+                "value": 279.937,
+                "unit": "m"
+            },
+            "fabric_cost": {
+                "value": 5290.81,
+                "unit": "BRL"
+            },
+            "cutting_cost": {
+                "value": 158.33,
+                "unit": "BRL"
+            },
+            "layout_cost": {
+                "value": 83.98,
+                "unit": "BRL"
+            },
+            "layer_cost": {
+                "value": 47.5,
+                "unit": "BRL"
+            },
+            "waste_cost": {
+                "value": 562.51,
+                "unit": "BRL"
+            },
+            "total_cost": {
+                "value": 6143.12,
+                "unit": "BRL"
+            },
+            "fabric_waste_area": {
+                "value": 44.6434,
+                "unit": "m²"
+            },
+            "fabric_waste_meters": {
+                "value": 29.7623,
+                "unit": "m"
+            },
+            "total_waste_percentage": {
+                "value": 10.63,
+                "unit": "%"
+            }
         },
         "demand": {
             "G": 57,
@@ -35,74 +65,206 @@
         "layouts_used": [
             {
                 "layout_id": 3,
-                "num_layers": 12,
-                "length_meters": 7.921,
-                "utilization": 0.94,
-                "waste_area": 0.7129,
+                "num_layers": {
+                    "value": 12,
+                    "unit": "camadas"
+                },
+                "length_meters": {
+                    "value": 7.921,
+                    "unit": "m"
+                },
+                "utilization": {
+                    "value": 0.94,
+                    "unit": "%"
+                },
+                "waste_area": {
+                    "value": 0.7129,
+                    "unit": "m²"
+                },
                 "production_per_size": {
-                    "G": 12,
-                    "GG": 24,
-                    "M": 36,
-                    "PP": 24
+                    "G": {
+                        "value": 12,
+                        "unit": "peças"
+                    },
+                    "GG": {
+                        "value": 24,
+                        "unit": "peças"
+                    },
+                    "M": {
+                        "value": 36,
+                        "unit": "peças"
+                    },
+                    "PP": {
+                        "value": 24,
+                        "unit": "peças"
+                    }
                 },
                 "costs": {
-                    "fabric_cost": 1796.48,
-                    "cutting_cost": 57.27,
-                    "layout_cost": 28.52
+                    "fabric_cost": {
+                        "value": 1796.48,
+                        "unit": "BRL"
+                    },
+                    "cutting_cost": {
+                        "value": 57.27,
+                        "unit": "BRL"
+                    },
+                    "layout_cost": {
+                        "value": 28.52,
+                        "unit": "BRL"
+                    }
                 }
             },
             {
                 "layout_id": 4,
-                "num_layers": 9,
-                "length_meters": 7.233,
-                "utilization": 0.91,
-                "waste_area": 0.9765,
+                "num_layers": {
+                    "value": 9,
+                    "unit": "camadas"
+                },
+                "length_meters": {
+                    "value": 7.233,
+                    "unit": "m"
+                },
+                "utilization": {
+                    "value": 0.91,
+                    "unit": "%"
+                },
+                "waste_area": {
+                    "value": 0.9765,
+                    "unit": "m²"
+                },
                 "production_per_size": {
-                    "G": 27,
-                    "GG": 9,
-                    "M": 9,
-                    "PP": 18
+                    "G": {
+                        "value": 27,
+                        "unit": "peças"
+                    },
+                    "GG": {
+                        "value": 9,
+                        "unit": "peças"
+                    },
+                    "M": {
+                        "value": 9,
+                        "unit": "peças"
+                    },
+                    "PP": {
+                        "value": 18,
+                        "unit": "peças"
+                    }
                 },
                 "costs": {
-                    "fabric_cost": 1230.33,
-                    "cutting_cost": 37.81,
-                    "layout_cost": 19.53
+                    "fabric_cost": {
+                        "value": 1230.33,
+                        "unit": "BRL"
+                    },
+                    "cutting_cost": {
+                        "value": 37.81,
+                        "unit": "BRL"
+                    },
+                    "layout_cost": {
+                        "value": 19.53,
+                        "unit": "BRL"
+                    }
                 }
             },
             {
                 "layout_id": 2,
-                "num_layers": 16,
-                "length_meters": 7.001,
-                "utilization": 0.85,
-                "waste_area": 1.5751,
+                "num_layers": {
+                    "value": 16,
+                    "unit": "camadas"
+                },
+                "length_meters": {
+                    "value": 7.001,
+                    "unit": "m"
+                },
+                "utilization": {
+                    "value": 0.85,
+                    "unit": "%"
+                },
+                "waste_area": {
+                    "value": 1.5751,
+                    "unit": "m²"
+                },
                 "production_per_size": {
-                    "G": 16,
-                    "GG": 32,
-                    "M": 32,
-                    "PP": 16
+                    "G": {
+                        "value": 16,
+                        "unit": "peças"
+                    },
+                    "GG": {
+                        "value": 32,
+                        "unit": "peças"
+                    },
+                    "M": {
+                        "value": 32,
+                        "unit": "peças"
+                    },
+                    "PP": {
+                        "value": 16,
+                        "unit": "peças"
+                    }
                 },
                 "costs": {
-                    "fabric_cost": 2117.1,
-                    "cutting_cost": 59.12,
-                    "layout_cost": 33.6
+                    "fabric_cost": {
+                        "value": 2117.1,
+                        "unit": "BRL"
+                    },
+                    "cutting_cost": {
+                        "value": 59.12,
+                        "unit": "BRL"
+                    },
+                    "layout_cost": {
+                        "value": 33.6,
+                        "unit": "BRL"
+                    }
                 }
             },
             {
                 "layout_id": 1,
-                "num_layers": 1,
-                "length_meters": 7.772,
-                "utilization": 0.82,
-                "waste_area": 2.0985,
+                "num_layers": {
+                    "value": 1,
+                    "unit": "camadas"
+                },
+                "length_meters": {
+                    "value": 7.772,
+                    "unit": "m"
+                },
+                "utilization": {
+                    "value": 0.82,
+                    "unit": "%"
+                },
+                "waste_area": {
+                    "value": 2.0985,
+                    "unit": "m²"
+                },
                 "production_per_size": {
-                    "G": 2,
-                    "GG": 1,
-                    "M": 2,
-                    "PP": 2
+                    "G": {
+                        "value": 2,
+                        "unit": "peças"
+                    },
+                    "GG": {
+                        "value": 1,
+                        "unit": "peças"
+                    },
+                    "M": {
+                        "value": 2,
+                        "unit": "peças"
+                    },
+                    "PP": {
+                        "value": 2,
+                        "unit": "peças"
+                    }
                 },
                 "costs": {
-                    "fabric_cost": 146.89,
-                    "cutting_cost": 4.13,
-                    "layout_cost": 2.33
+                    "fabric_cost": {
+                        "value": 146.89,
+                        "unit": "BRL"
+                    },
+                    "cutting_cost": {
+                        "value": 4.13,
+                        "unit": "BRL"
+                    },
+                    "layout_cost": {
+                        "value": 2.33,
+                        "unit": "BRL"
+                    }
                 }
             }
         ]
