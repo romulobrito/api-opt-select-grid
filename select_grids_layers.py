@@ -1084,12 +1084,6 @@ class LayoutOptimizer:
                 for layout in filtered_layouts
             ])
 
-            # Add minimum layer count constraint
-            for layout in filtered_layouts:
-                solver.Add(
-                    x[layout['id']] >= self.min_layers_per_layout * y[layout['id']]
-                )
-
             solver.Minimize(objective)
             
             # Solve the problem
@@ -1132,6 +1126,7 @@ class LayoutOptimizer:
                 for size in self.sizes:
                     if size in demand_quantity:
                         logging.info(f"  {size}: {total_production[size]} (Demand: {demand_quantity[size]})")
+                
                 
                 if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
                     # Process solution 
