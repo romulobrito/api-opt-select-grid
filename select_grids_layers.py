@@ -334,7 +334,7 @@ class LayoutOptimizer:
                 f"obtained {layout_data['length_meters']}m"
             )
         
-
+    #TODO: Implementar validação de métricas de desperdício 
     def _validate_waste_metrics(self, layout_data):
         """Validate waste metrics of the layout.
         
@@ -570,7 +570,7 @@ class LayoutOptimizer:
 
 
 
-
+    #TODO: Implementar validação de métricas de desperdício
     def _calculate_layout_metrics(self, layout_data):
         """Calculate metrics for a specific layout.
         
@@ -870,7 +870,7 @@ class LayoutOptimizer:
             logging.error(f"Error processing the solution: {str(e)}")
             logging.error(traceback.format_exc())
             raise
-
+    #TODO: Implementar validação de métricas de desperdício
     def _validate_final_results(self, result):
         """Final validation of the results.
         
