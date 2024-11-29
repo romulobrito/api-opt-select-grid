@@ -686,16 +686,23 @@ class LayoutOptimizer:
             y = {}  # variável binária indicando se o layout é usado
             
             # Inicializa variáveis para cada layout
-            # Inicializa variáveis para cada layout
             for layout in filtered_layouts:
                 x[layout['id']] = solver.IntVar(0, order['max_layers'], f'x_{layout["id"]}')
                 y[layout['id']] = solver.IntVar(0, 1, f'y_{layout["id"]}')
                 
                 # Relaciona x e y: se y=0, x deve ser 0
                 solver.Add(x[layout['id']] <= order['max_layers'] * y[layout['id']])
+
+                # Garante uso de pelo menos um layout
+                solver.Add(
+                    x[layout['id']] >= self.min_layers_per_layout * y[layout['id']]
+                )
+                
+                # Se não é usado (y=0), deve ter 0 camadas
+                solver.Add(x[layout['id']] <= order['max_layers'] * y[layout['id']])
             
-            # Garante uso de pelo menos um layout
-            solver.Add(solver.Sum(y[l['id']] for l in filtered_layouts) >= 1)
+                # Garante uso de pelo menos um layout
+                # solver.Add(solver.Sum(y[l['id']] for l in filtered_layouts) >= 1)
             
             
             # Cria variáveis para superprodução
@@ -784,7 +791,7 @@ class LayoutOptimizer:
                         logging.info(f"  {size}: {total_production[size]} (Demanda: {demand_quantity[size]})")
                 
                 if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
-                    # Processa solução - Corrigindo a chamada
+                    # Processa solução 
                     result = self._process_solution(
                         solver=solver,
                         x=x,
