@@ -1,18 +1,36 @@
 import requests
 import json
 from datetime import datetime
-from tabulate import tabulate
 
 
+def format_date(date_str):
+    """Format a date string to a specific format.
+    
+    Args:
+        date_str (str): The date string in ISO format.
+        
+    Returns:
+        str: The formatted date string in "dd/mm/yyyy HH:MM" format.
+    """
+    return datetime.fromisoformat(date_str).strftime("%d/%m/%Y %H:%M")
 
-def formatar_data(data_str):
-    return datetime.fromisoformat(data_str).strftime("%d/%m/%Y %H:%M")
-
-def formatar_moeda(valor):
-    return f"R$ {valor:,.2f}"
+def format_currency(value):
+    """Format a numeric value as currency.
+    
+    Args:
+        value (float): The numeric value to format.
+        
+    Returns:
+        str: The formatted currency string.
+    """
+    return f"R$ {value:,.2f}"
 
 def get_token():
-    """Function to obtain authentication token"""
+    """Function to obtain authentication token.
+    
+    Returns:
+        str: The access token if successful, None otherwise.
+    """
     login_url = "http://localhost:8000/token"
     
     data = {
@@ -40,6 +58,14 @@ def get_token():
         return None
 
 def view_results():
+    """Main function to view optimization results.
+    
+    This function retrieves the optimization results from the API and displays
+    them in a formatted manner.
+    
+    Returns:
+        None
+    """
     print("Starting visualization script...")
     token = get_token()
     if not token:
@@ -52,7 +78,7 @@ def view_results():
         with open('input_data.json', 'r', encoding='utf-8') as f:  
             data = json.load(f)
         
-        # Validação básica dos dados
+        # Basic data validation
         required_keys = ['general_configuration', 'layouts', 'fabrics', 'pieces']
         for key in required_keys:
             if key not in data:
@@ -78,49 +104,49 @@ def view_results():
         results = response.json()
         
         if results["status"] == "success":
-            print("\nResultados da Otimização:")
+            print("\nOptimization Results:")
             for order_id, result in results["data"].items():
                 if result:
-                    print(f"\nPeça: {result.get('pattern', 'Desconhecido')}")
+                    print(f"\nItem: {result.get('pattern', 'Unknown')}")
                     
-                    print("\nDemanda vs Produção:")
+                    print("\nDemand vs Production:")
                     for size in result['production'].keys():
                         demand = result['demand'].get(size, 0)
                         prod = result['production'].get(size, 0)
                         over = result['overproduction'].get(size, 0)
-                        print(f"  {size}: Demanda={demand}, Produção={prod} (Excesso: {over})")
+                        print(f"  {size}: Demand={demand}, Production={prod} (Excess: {over})")
                     
                     metrics = result['metrics']
-                    print("\nMétricas de Desperdício:")
-                    print(f"  Área desperdiçada: {metrics['fabric_waste_area']:.4f} m²")
-                    print(f"  Comprimento desperdiçado: {metrics['fabric_waste_meters']:.4f} m")
-                    print(f"  Percentual de desperdício: {metrics['total_waste_percentage']:.1f}%")
+                    print("\nWaste Metrics:")
+                    print(f"  Waste Area: {metrics['fabric_waste_area']:.4f} m²")
+                    print(f"  Waste Length: {metrics['fabric_waste_meters']:.4f} m")
+                    print(f"  Waste Percentage: {metrics['total_waste_percentage']:.1f}%")
                     
-                    print("\nCustos (KPIs):")
+                    print("\nCosts (KPIs):")
                     try:
-                        print(f"  Custo do tecido: {formatar_moeda(metrics['fabric_cost'])}")
-                        print(f"  Custo de corte: {formatar_moeda(metrics['cutting_cost'])}")
-                        print(f"  Custo de setup: {formatar_moeda(metrics['layout_setup_cost'])}")
-                        print(f"  Custo por camada: {formatar_moeda(metrics['layer_cost'])}")
-                        print(f"  Custo do desperdício: {formatar_moeda(metrics['waste_cost'])}")  
-                        print(f"  Custo total: {formatar_moeda(metrics['total_cost'])}")
+                        print(f"  Fabric Cost: {format_currency(metrics['fabric_cost'])}")
+                        print(f"  Cutting Cost: {format_currency(metrics['cutting_cost'])}")
+                        print(f"  Setup Cost: {format_currency(metrics['layout_setup_cost'])}")
+                        print(f"  Cost per Layer: {format_currency(metrics['layer_cost'])}")
+                        print(f"  Waste Cost: {format_currency(metrics['waste_cost'])}")  
+                        print(f"  Total Cost: {format_currency(metrics['total_cost'])}")
                     except KeyError as e:
-                        print(f"Erro: Métrica ausente: {e}")
+                        print(f"Error: Missing metric: {e}")
                     
-                    print("\nLayouts Utilizados:")
+                    print("\nLayouts Used:")
                     for layout in result.get('layouts_used', []):
                         print(f"\n  Layout {layout['layout_id']}:")
-                        print(f"    Camadas: {layout['num_layers']}")
-                        print(f"    Comprimento: {layout['length_meters']:.3f} m")
-                        print(f"    Aproveitamento: {layout['utilization']*100:.1f}%")
-                        print(f"    Desperdício: {layout['waste_area']:.4f} m²")
+                        print(f"    Layers: {layout['num_layers']}")
+                        print(f"    Length: {layout['length_meters']:.3f} m")
+                        print(f"    Utilization: {layout['utilization']*100:.1f}%")
+                        print(f"    Waste: {layout['waste_area']:.4f} m²")
                 else:
-                    print(f"\nPeça {order_id}: Sem solução viável")
+                    print(f"\nItem {order_id}: No viable solution")
 
     except requests.exceptions.ConnectionError:
-        print("\nErro: Não foi possível conectar à API.")
+        print("\nError: Could not connect to the API.")
     except Exception as e:
-        print(f"\nErro inesperado: {e}")
+        print(f"\nUnexpected error: {e}")
         import traceback
         print(traceback.format_exc())
 
