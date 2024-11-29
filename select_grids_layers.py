@@ -14,21 +14,59 @@ logging.basicConfig(
 
 
 class UnitConverter:
-    """Classe utilitária para conversão de unidades e cálculos de métricas"""
+    """Utility class for unit conversions and metric calculations in the layout optimization process.
+    
+    This class provides static methods to handle various unit conversions commonly used
+    in fabric cutting layouts, such as converting between millimeters and meters,
+    or square centimeters to square meters. It also includes methods to calculate
+    layout metrics and waste metrics with proper unit conversions.
+    """
     
     @staticmethod
     def mm_to_m(value):
-        """Converte milímetros para metros"""
+        """Convert millimeters to meters.
+        
+        Args:
+            value (float): Length in millimeters
+            
+        Returns:
+            float: Length in meters
+        """
         return value / 1000.0
     
     @staticmethod
     def cm2_to_m2(value):
-        """Converte centímetros quadrados para metros quadrados"""
+        """Convert square centimeters to square meters.
+        
+        Args:
+            value (float): Area in square centimeters
+            
+        Returns:
+            float: Area in square meters
+        """
         return value / 10000.0
     
     @staticmethod
     def calculate_layout_metrics(layout, num_layers):
-        """Calcula todas as métricas do layout com as unidades corretas"""
+        """Calculate all layout metrics with correct units.
+        
+        Converts all measurements to standard units (meters, square meters)
+        and calculates derived metrics for the layout.
+        
+        Args:
+            layout (dict): Layout data containing measurements in original units
+            num_layers (int): Number of fabric layers in the layout
+            
+        Returns:
+            dict: Dictionary containing all converted metrics:
+                - length_meters (float): Layout length in meters
+                - waste_area_m2 (float): Waste area in square meters
+                - total_area_m2 (float): Total area in square meters
+                - perimeter_meters (float): Total perimeter in meters
+                - fabric_width_m (float): Fabric width in meters
+                - utilization (float): Layout utilization percentage
+                - num_layers (int): Number of layers
+        """
         return {
             'length_meters': UnitConverter.mm_to_m(layout['layout_length']),
             'waste_area_m2': UnitConverter.cm2_to_m2(layout['waste_area']),
@@ -41,17 +79,36 @@ class UnitConverter:
     
     @staticmethod
     def calculate_waste_metrics(layout):
-        """Calcula métricas de desperdício do layout"""
+        """Calculate waste-related metrics for a layout.
+        
+        Converts waste measurements to standard units and calculates
+        derived waste metrics such as linear waste and waste percentage.
+        
+        Args:
+            layout (dict): Layout data containing:
+                - total_area (float): Total area in mm²
+                - waste_area (float): Waste area in mm²
+                - fabric_width (float): Fabric width in mm
+                
+        Returns:
+            dict: Dictionary containing waste metrics:
+                - fabric_waste_area (float): Waste area in m²
+                - fabric_waste_meters (float): Linear waste in meters
+                - total_waste_percentage (float): Waste percentage
+                
+        Raises:
+            Exception: If any calculation errors occur
+        """
         try:
-            # Converte áreas de mm² para m²
-            total_area_m2 = layout['total_area'] / 10000  # mm² para m²
-            waste_area_m2 = layout['waste_area'] / 10000  # mm² para m²
-            fabric_width_m = layout['fabric_width'] / 1000  # mm para m
+            # Convert areas from mm² to m²
+            total_area_m2 = layout['total_area'] / 10000  # mm² to m²
+            waste_area_m2 = layout['waste_area'] / 10000  # mm² to m²
+            fabric_width_m = layout['fabric_width'] / 1000  # mm to m
             
-            # Calcula desperdício em metros lineares
+            # Calculate linear waste in meters
             waste_meters = waste_area_m2 / fabric_width_m if fabric_width_m > 0 else 0
             
-            # Calcula percentual de desperdício
+            # Calculate waste percentage
             waste_percentage = (layout['waste_area'] / layout['total_area']) * 100 if layout['total_area'] > 0 else 0
             
             return {
@@ -61,85 +118,147 @@ class UnitConverter:
             }
             
         except Exception as e:
-            logging.error(f"Erro no cálculo de métricas de desperdício: {str(e)}")
+            logging.error(f"Error calculating waste metrics: {str(e)}")
             raise
 
 class LayoutOptimizer:
+    """Layout optimization engine for fabric cutting problems.
+    
+    This class handles the optimization of fabric cutting layouts, considering multiple
+    constraints such as demand fulfillment, fabric waste minimization, and production costs.
+    
+    Attributes:
+        config (dict): General configuration parameters
+        layouts (list): Available cutting layouts
+        fabrics (dict): Fabric specifications indexed by fabric name
+        pieces (list): Pieces to be produced with their demands
+        sizes (list): All available sizes sorted
+        overproduction_penalty (float): Penalty factor for overproduction
+        unit_waste_cost (float): Cost per unit of waste
+        optimality_gap (float): Solver optimality gap
+        max_memory_mb (int): Maximum memory usage for solver
+        layout_change_penalty (float): Penalty for changing layouts
+        min_layers_per_layout (int): Minimum number of layers per layout
+        waste_penalty_factor (float): Factor to penalize waste in objective function
+    """
+    
     def __init__(self, input_data):
+        """Initialize the layout optimizer with input data.
+        
+        Args:
+            input_data (dict): Input data containing:
+                - general_configuration (dict): Optimization parameters
+                - layouts (list): Available cutting layouts
+                - fabrics (list): Fabric specifications
+                - pieces (list): Pieces to be produced
+                
+        Raises:
+            ValueError: If required data is missing or invalid
+        """
+        # Load configuration and data
         self.config = input_data['general_configuration']
         self.layouts = input_data.get('layout', input_data.get('layouts', []))
         self.fabrics = {f['fabric']: f for f in input_data['fabrics']}
         self.pieces = input_data['pieces']
         
-        # Extrair tamanhos de todas as fontes possíveis
+        # Extract sizes from all possible sources
         sizes_from_pieces = set()
         sizes_from_layouts = set()
         
-        # Extrair tamanhos das peças (demanda)
+        # Extract sizes from pieces (demand)
         for piece in self.pieces:
             if 'quantity' in piece:
                 sizes_from_pieces.update(piece['quantity'].keys())
         
-        # Extrair tamanhos dos layouts
+        # Extract sizes from layouts
         for layout in self.layouts:
             for piece in layout['pieces']:
                 if 'size_grade' in piece:
                     sizes_from_layouts.update(piece['size_grade'].keys())
         
-        # Combinar todos os tamanhos encontrados
+        # Combine all found sizes
         self.sizes = sorted(sizes_from_pieces.union(sizes_from_layouts))
         
         if not self.sizes:
-            raise ValueError("Não foi possível extrair os tamanhos dos dados de entrada")
+            raise ValueError("Could not extract sizes from input data")
         
-        logging.info(f"Tamanhos extraídos automaticamente: {self.sizes}")
+        logging.info(f"Automatically extracted sizes: {self.sizes}")
         
-        # Restante da inicialização...
+        # Initialize optimization parameters
         self.overproduction_penalty = self.config.get('overproduction_percentage', 0.05)
         self.unit_waste_cost = self.config.get('waste_cost', 0.1)
         self.optimality_gap = self.config.get('optimality_gap', 0.01)
         self.max_memory_mb = self.config.get('max_memory_mb', 2048)
         
-        # Novos parâmetros
+        # New parameters
         self.layout_change_penalty = self.config.get('layout_change_penalty', 1000)
         self.min_layers_per_layout = self.config.get('min_layers_per_layout', 5)
         self.waste_penalty_factor = self.config.get('waste_penalty_factor', 2.0)
         
-        # Log dos parâmetros carregados
-        logging.info("Parâmetros de otimização:")
+        # Log loaded parameters
+        logging.info("Optimization parameters:")
         logging.info(f"  Layout change penalty: {self.layout_change_penalty}")
         logging.info(f"  Min layers per layout: {self.min_layers_per_layout}")
         logging.info(f"  Waste penalty factor: {self.waste_penalty_factor}")
 
-        # Validação dos novos parâmetros
+        # Validate parameters
         if self.layout_change_penalty < 0:
-            raise ValueError("layout_change_penalty deve ser não-negativo")
+            raise ValueError("layout_change_penalty must be non-negative")
         
         if self.min_layers_per_layout < 1:
-            raise ValueError("min_layers_per_layout deve ser pelo menos 1")
+            raise ValueError("min_layers_per_layout must be at least 1")
         
         if self.waste_penalty_factor < 0:
-            raise ValueError("waste_penalty_factor deve ser não-negativo")
+            raise ValueError("waste_penalty_factor must be non-negative")
         
+        # Calculate price per square meter for each fabric
         for fabric in self.fabrics.values():
             fabric['price_per_square_meter'] = (
                 fabric['price_per_linear_meter'] / (fabric['fabric_width'] / 1000)
             )
-            logging.info(f"Preço por m² do tecido {fabric['fabric']}: R${fabric['price_per_square_meter']:.2f}")
+            logging.info(f"Price per m² for fabric {fabric['fabric']}: ${fabric['price_per_square_meter']:.2f}")
        
 
 
 
 
     def optimize_production(self):
+        """Optimize production for all pieces in the order.
+        
+        This method processes each piece in the order separately, creating an optimization
+        problem for each one and collecting the results. It ensures all metrics are properly
+        calculated and validated.
+        
+        Returns:
+            dict: Results for each order, containing:
+                - metrics (dict): Production metrics including costs and waste
+                - layouts_used (list): Selected layouts and their configurations
+                - production (dict): Pieces produced by size
+                - overproduction (dict): Excess production by size
+                
+        Example result structure:
+            {
+                'order_1': {
+                    'metrics': {
+                        'fabric_meters': 100.5,
+                        'fabric_cost': 1000.0,
+                        ...
+                    },
+                    'layouts_used': [...],
+                    'production': {'S': 50, 'M': 60, ...},
+                    'overproduction': {'S': 2, 'M': 1, ...}
+                },
+                ...
+            }
+        """
         results = {}
         
         for i, piece in enumerate(self.pieces, 1):
             order_id = f'order_{i}'
             pattern = piece['pattern']
-            logging.info(f"Processando {pattern} (Ordem {order_id})")
+            logging.info(f"Processing {pattern} (Order {order_id})")
             
-            # Cria estrutura de ordem
+            # Create order structure with required parameters
             order = {
                 'id': order_id,
                 'pattern': pattern,
@@ -149,27 +268,27 @@ class LayoutOptimizer:
                 'max_length': self.config['max_total_length']
             }
             
-            # Otimiza ordem
+            # Optimize individual order
             result = self.optimize_order(order)
             if result:
-                # Garante que todas as métricas existam com valores padrão
+                # Initialize default metrics to ensure all fields exist
                 metrics = {
-                    'fabric_meters': 0.0,
-                    'fabric_cost': 0.0,
-                    'cutting_cost': 0.0,
-                    'layout_cost': 0.0,
-                    'layer_cost': 0.0,
-                    'waste_cost': 0.0,
-                    'total_cost': 0.0,
-                    'fabric_waste_area': 0.0,
-                    'fabric_waste_meters': 0.0,
-                    'total_waste_percentage': 0.0
+                    'fabric_meters': 0.0,  # Total fabric length in meters
+                    'fabric_cost': 0.0,    # Cost of fabric used
+                    'cutting_cost': 0.0,   # Cost of cutting operations
+                    'layout_cost': 0.0,    # Cost of layout setup
+                    'layer_cost': 0.0,     # Cost related to number of layers
+                    'waste_cost': 0.0,     # Cost of wasted material
+                    'total_cost': 0.0,     # Sum of all costs
+                    'fabric_waste_area': 0.0,    # Waste area in square meters
+                    'fabric_waste_meters': 0.0,  # Waste in linear meters
+                    'total_waste_percentage': 0.0  # Percentage of total waste
                 }
                 
-                # Atualiza com os valores calculados
+                # Update with calculated values from optimization
                 metrics.update(result['metrics'])
                 
-                # Recalcula o custo total para garantir consistência
+                # Recalculate total cost to ensure consistency
                 metrics['total_cost'] = sum([
                     metrics['fabric_cost'],
                     metrics['cutting_cost'],
@@ -181,57 +300,111 @@ class LayoutOptimizer:
                 result['metrics'] = metrics
                 results[order_id] = result
                 
-                # Validação final das métricas
+                # Final validation of metrics
                 self._validate_metrics(result['metrics'])
                 
         return results
 
     def _validate_layout_metrics(self, layout_data):
-        """Valida as métricas dos layouts"""
-        # Comprimento em metros deve ser maior que 0
+        """Validate the metrics of the layout.
+        
+        This method checks the validity of the layout metrics to ensure that
+        the length in meters is greater than zero and consistent with the
+        length provided in millimeters. It raises a ValueError if any
+        validation fails.
+        
+        Args:
+            layout_data (dict): Layout metrics containing:
+                - length_meters (float): Length of the layout in meters
+                - layout_length (float): Length of the layout in millimeters
+                
+        Raises:
+            ValueError: If the length is invalid or inconsistent.
+        """
+        # Length in meters must be greater than 0
         if layout_data['length_meters'] <= 0:
-            raise ValueError(f"Comprimento inválido: {layout_data['length_meters']}")
+            raise ValueError(f"Invalid length: {layout_data['length_meters']}")
             
-        # Comprimento em metros deve ser consistente com o valor em milímetros
-        expected_length = layout_data['layout_length'] / 1000
+        # Length in meters must be consistent with the value in millimeters
+        expected_length = layout_data['layout_length'] / 1000  # Convert mm to m
         if abs(layout_data['length_meters'] - expected_length) > 0.001:
             raise ValueError(
-                f"Inconsistência no comprimento: "
-                f"esperado {expected_length}m, "
-                f"obtido {layout_data['length_meters']}m"
+                f"Inconsistency in length: "
+                f"expected {expected_length}m, "
+                f"obtained {layout_data['length_meters']}m"
             )
         
 
     def _validate_waste_metrics(self, layout_data):
-        """Valida métricas de desperdício do layout"""
+        """Validate waste metrics of the layout.
+        
+        This method checks the waste metrics calculated for a layout to ensure
+        that the utilization is consistent with the calculated waste area. It
+        raises a ValueError if any validation fails.
+        
+        Args:
+            layout_data (dict): Layout data containing:
+                - id (str): Identifier for the layout
+                - utilization (float): Reported utilization percentage
+                - total_area_m2 (float): Total area of the layout in square meters
+                
+        Returns:
+            dict: Calculated waste metrics including:
+                - fabric_waste_area (float): Area of fabric wasted in square meters
+                - fabric_waste_meters (float): Linear waste in meters
+                
+        Raises:
+            ValueError: If the calculated utilization is inconsistent with the reported utilization.
+        """
         try:
-            # Converte unidades
+            # Convert units and calculate metrics
             metrics = UnitConverter.calculate_layout_metrics(layout_data, 1)
             waste_metrics = UnitConverter.calculate_waste_metrics(metrics)
             
-            # Valida utilização
+            # Validate utilization
             calculated_utilization = 1 - (waste_metrics['fabric_waste_area'] / metrics['total_area_m2'])
             if abs(calculated_utilization - layout_data['utilization']) > 0.01:
                 raise ValueError(
-                    f"Inconsistência no cálculo de utilização do layout {layout_data['id']}: "
-                    f"calculado {calculated_utilization:.4f}, informado {layout_data['utilization']:.4f}"
+                    f"Inconsistency in utilization calculation for layout {layout_data['id']}: "
+                    f"calculated {calculated_utilization:.4f}, reported {layout_data['utilization']:.4f}"
                 )
                 
             return waste_metrics
         
         except Exception as e:
-            logging.error(f"Erro na validação de métricas de desperdício: {str(e)}")
+            logging.error(f"Error validating waste metrics: {str(e)}")
             raise
     
     def _validate_metrics(self, metrics):
-        """Valida a consistência das métricas calculadas"""
+        """Validate the consistency of calculated metrics.
+        
+        This method checks various metrics to ensure they are valid and consistent.
+        It raises a ValueError if any validation fails, including checks for negative
+        values, total cost consistency, waste metrics, and more.
+        
+        Args:
+            metrics (dict): Calculated metrics containing:
+                - fabric_cost (float): Cost of fabric used
+                - cutting_cost (float): Cost of cutting operations
+                - layout_cost (float): Cost of layout setup
+                - layer_cost (float): Cost related to the number of layers
+                - waste_cost (float): Cost of wasted material
+                - total_cost (float): Total cost of production
+                - fabric_waste_area (float): Area of fabric wasted in square meters
+                - fabric_waste_meters (float): Linear waste in meters
+                - total_waste_percentage (float): Percentage of total waste
+                - fabric_meters (float): Total fabric length in meters
+                
+        Raises:
+            ValueError: If any metric is invalid or inconsistent.
+        """
         try:
-            # Verifica valores negativos
+            # Check for negative values
             for key, value in metrics.items():
                 if value < 0:
-                    raise ValueError(f"Métrica {key} com valor negativo: {value}")
+                    raise ValueError(f"Metric {key} has a negative value: {value}")
             
-            # Verifica consistência do custo total
+            # Check consistency of total cost
             expected_total = sum([
                 metrics['fabric_cost'],
                 metrics['cutting_cost'],
@@ -242,62 +415,85 @@ class LayoutOptimizer:
             
             if abs(expected_total - metrics['total_cost']) > 0.01:
                 raise ValueError(
-                    f"Inconsistência no custo total: "
-                    f"esperado R${expected_total:.2f}, "
-                    f"obtido R${metrics['total_cost']:.2f}"
+                    f"Inconsistency in total cost: "
+                    f"expected R${expected_total:.2f}, "
+                    f"obtained R${metrics['total_cost']:.2f}"
                 )
             
-                
-            # Verifica consistência do desperdício
+            # Check consistency of waste metrics
             if metrics['fabric_waste_meters'] > metrics['fabric_meters']:
-                raise ValueError("Metros desperdiçados maior que metros totais")
+                raise ValueError("Waste meters exceed total fabric meters")
             
-            # Validação específica para métricas de desperdício
+            # Specific validation for waste metrics
             if metrics['fabric_waste_area'] > 0:
                 expected_waste_meters = metrics['fabric_waste_area'] / (self.fabrics[self.pieces[0]['fabrics'][0]]['fabric_width'] / 1000)
                 if abs(metrics['fabric_waste_meters'] - expected_waste_meters) > 0.0001:
                     raise ValueError(
-                        f"Inconsistência nos metros desperdiçados: "
-                        f"esperado {expected_waste_meters:.6f}m, "
-                        f"obtido {metrics['fabric_waste_meters']:.6f}m"
+                        f"Inconsistency in waste meters: "
+                        f"expected {expected_waste_meters:.6f}m, "
+                        f"obtained {metrics['fabric_waste_meters']:.6f}m"
                     )
-                
+            
             if metrics['fabric_meters'] <= 0:
-                raise ValueError("Metros de tecido deve ser maior que zero")
-                
+                raise ValueError("Fabric meters must be greater than zero")
+            
             if metrics['total_cost'] <= 0:
-                raise ValueError("Custo total deve ser maior que zero")
-                
-            # Novas validações para desperdício
+                raise ValueError("Total cost must be greater than zero")
+            
+            # New validations for waste metrics
             if metrics['fabric_waste_area'] < 0:
-                raise ValueError("Área desperdiçada não pode ser negativa")
-                
+                raise ValueError("Waste area cannot be negative")
+            
             if metrics['fabric_waste_meters'] < 0:
-                raise ValueError("Metros desperdiçados não pode ser negativo")
-                
+                raise ValueError("Waste meters cannot be negative")
+            
             if not (0 <= metrics['total_waste_percentage'] <= 100):
                 raise ValueError(
-                    f"Percentual de desperdício deve estar entre 0 e 100, encontrado: "
+                    f"Waste percentage must be between 0 and 100, found: "
                     f"{metrics['total_waste_percentage']:.2f}%"
                 )
-                
+        
         except Exception as e:
-            logging.error(f"Erro na validação de métricas: {str(e)}")
+            logging.error(f"Error validating metrics: {str(e)}")
             raise
     
     def _validate_costs(self, layout_data):
+        """Validate the costs associated with the layout.
+        
+        This method checks the calculated costs of a layout against expected values
+        based on the fabric specifications and layout dimensions. It raises a ValueError
+        if any cost is inconsistent with the expected value.
+        
+        Args:
+            layout_data (dict): Layout data containing:
+                - fabric (str): Name of the fabric used
+                - num_layers (int): Number of layers in the layout
+                - layout_length (float): Length of the layout in millimeters
+                - waste_area (float): Area of waste in mm²
+                - fabric_width (float): Width of the fabric in mm
+                - total_perimeter (float): Total perimeter of the layout in mm
+                - costs (dict): Calculated costs including:
+                    - fabric_cost (float): Cost of fabric used
+                    - cutting_cost (float): Cost of cutting operations
+                    - layout_cost (float): Cost of layout setup
+                    - layer_cost (float): Cost related to the number of layers
+                    - waste_cost (float): Cost of wasted material
+                    
+        Raises:
+            ValueError: If any calculated cost is inconsistent with the expected cost.
+        """
         try:
             fabric = self.fabrics[layout_data['fabric']]
             tolerance = 0.01
             num_layers = layout_data['num_layers']
-            length_meters = layout_data['layout_length'] / 1000  # mm para m
+            length_meters = layout_data['layout_length'] / 1000  # Convert mm to m
             
-            # Conversões para cálculo do desperdício
-            waste_area_m2 = layout_data['waste_area'] / 1_000_000  # mm² para m²
-            fabric_width_m = layout_data['fabric_width'] / 1000    # mm para m
+            # Conversions for waste calculation
+            waste_area_m2 = layout_data['waste_area'] / 1_000_000  # Convert mm² to m²
+            fabric_width_m = layout_data['fabric_width'] / 1000    # Convert mm to m
             waste_meters = waste_area_m2 / fabric_width_m
             
-            # Custos esperados
+            # Expected costs
             expected_costs = {
                 'fabric_cost': length_meters * fabric['price_per_linear_meter'] * num_layers,
                 'cutting_cost': (layout_data['total_perimeter'] / 1000) * fabric['cost_per_cut_meter'] * num_layers,
@@ -306,39 +502,62 @@ class LayoutOptimizer:
                 'waste_cost': waste_meters * fabric['price_per_linear_meter'] * num_layers
             }
             
-            # Validação
+            # Validation
             for cost_type, expected in expected_costs.items():
                 actual = layout_data['costs'].get(cost_type, 0)
                 if abs(actual - expected) > tolerance:
                     raise ValueError(
-                        f"Erro no cálculo do {cost_type}: "
-                        f"esperado R${expected:.2f}, "
-                        f"obtido R${actual:.2f}"
+                        f"Error in calculating {cost_type}: "
+                        f"expected R${expected:.2f}, "
+                        f"obtained R${actual:.2f}"
                     )
                     
         except Exception as e:
-            logging.error(f"Erro na validação dos custos: {str(e)}")
+            logging.error(f"Error validating costs: {str(e)}")
             raise
 
 
 
     def _calculate_waste_cost(self, layout, num_layers):
+        """Calculate the waste cost associated with a layout.
+        
+        This method computes the cost of waste based on the layout's waste area,
+        fabric specifications, and the number of layers. It raises a ValueError
+        if any validation checks fail, such as negative costs or excessive waste.
+        
+        Args:
+            layout (dict): Layout data containing:
+                - fabric (str): Name of the fabric used
+                - waste_area (float): Area of waste in mm²
+                - fabric_width (float): Width of the fabric in mm
+                - layout_length (float): Length of the layout in mm
+            num_layers (int): Number of layers in the layout
+            
+        Returns:
+            dict: Dictionary containing:
+                - waste_cost (float): Calculated cost of waste
+                - fabric_waste_area (float): Area of fabric wasted in m²
+                - fabric_waste_meters (float): Linear waste in meters
+                
+        Raises:
+            ValueError: If waste cost is negative or waste meters exceed layout length.
+        """
         try:
             fabric = self.fabrics[layout['fabric']]
             
-            # Conversões corretas de unidades
-            waste_area_m2 = layout['waste_area'] / 1_000_000  # mm² para m²
-            fabric_width_m = layout['fabric_width'] / 1000    # mm para m
+            # Correct unit conversions
+            waste_area_m2 = layout['waste_area'] / 1_000_000  # Convert mm² to m²
+            fabric_width_m = layout['fabric_width'] / 1000    # Convert mm to m
             waste_meters = waste_area_m2 / fabric_width_m
             
-            # Calcula o custo do desperdício
+            # Calculate waste cost
             waste_cost = waste_meters * fabric['price_per_linear_meter'] * num_layers
             
-            # Validações
+            # Validations
             if waste_cost < 0:
-                raise ValueError(f"Custo de desperdício negativo: {waste_cost}")
+                raise ValueError(f"Negative waste cost: {waste_cost}")
             if waste_meters > layout['layout_length'] / 1000:
-                raise ValueError(f"Metros desperdiçados ({waste_meters}) maior que comprimento do layout ({layout['layout_length']/1000})")
+                raise ValueError(f"Waste meters ({waste_meters}) exceed layout length ({layout['layout_length'] / 1000})")
                 
             return {
                 'waste_cost': waste_cost,
@@ -346,26 +565,50 @@ class LayoutOptimizer:
                 'fabric_waste_meters': waste_meters
             }
         except Exception as e:
-            logging.error(f"Erro no cálculo do custo de desperdício: {str(e)}")
+            logging.error(f"Error calculating waste cost: {str(e)}")
             raise
 
 
 
 
     def _calculate_layout_metrics(self, layout_data):
-        """Calcula métricas para um layout específico"""
+        """Calculate metrics for a specific layout.
+        
+        This method computes various cost metrics associated with a layout,
+        including fabric cost, cutting cost, layout cost, layer cost, and waste
+        metrics. It raises a ValueError if any calculation fails.
+        
+        Args:
+            layout_data (dict): Layout data containing:
+                - fabric (str): Name of the fabric used
+                - num_layers (int): Number of layers in the layout
+                - length_meters (float): Length of the layout in mm
+                
+        Returns:
+            dict: Dictionary containing:
+                - fabric_cost (float): Cost of fabric used
+                - cutting_cost (float): Cost of cutting operations
+                - layout_cost (float): Cost of layout setup
+                - layer_cost (float): Cost related to the number of layers
+                - waste_cost (float): Cost of waste
+                - fabric_waste_area (float): Area of fabric wasted in m²
+                - fabric_waste_meters (float): Linear waste in meters
+                
+        Raises:
+            ValueError: If any calculation errors occur.
+        """
         try:
             fabric = self.fabrics[layout_data['fabric']]
             num_layers = layout_data['num_layers']
             
-            # Cálculos básicos
-            length_meters = layout_data['length_meters'] / 1000  # mm para m
+            # Basic calculations
+            length_meters = layout_data['length_meters'] / 1000  # Convert mm to m
             fabric_cost = length_meters * fabric['price_per_linear_meter'] * num_layers
             cutting_cost = length_meters * fabric['cost_per_cut_meter'] * num_layers
             layout_cost = length_meters * fabric['cost_per_layout_meter']
             layer_cost = fabric['cost_per_layer'] * num_layers
             
-            # Cálculo do desperdício
+            # Calculate waste metrics
             waste_metrics = self._calculate_waste_cost(layout_data, num_layers)
             
             return {
@@ -378,11 +621,25 @@ class LayoutOptimizer:
                 'fabric_waste_meters': waste_metrics['fabric_waste_meters']
             }
         except Exception as e:
-            logging.error(f"Erro no cálculo das métricas do layout: {str(e)}")
+            logging.error(f"Error calculating layout metrics: {str(e)}")
             raise
 
     def preprocess_layouts(self, demand, fabric_width):
-        """Preprocess and filter layouts compatible with the demand and fabric width"""
+        """Preprocess and filter layouts compatible with the demand and fabric width.
+        
+        This method filters the available layouts based on the specified fabric width
+        and checks if they contain the necessary patterns for the given demand. It also
+        calculates the efficiency of each layout per size and returns the filtered layouts.
+        
+        Args:
+            demand (dict): Demand data containing:
+                - pieces (list): List of pieces required, each with a pattern and size grade.
+            fabric_width (float): Width of the fabric to filter layouts.
+            
+        Returns:
+            list: A list of filtered layouts that match the demand and fabric width,
+                each with calculated efficiency metrics.
+        """
         filtered_layouts = []
         for layout in self.layouts:
             # Filter by fabric width
@@ -412,24 +669,52 @@ class LayoutOptimizer:
 
 
     def _calculate_layout_costs(self, layout, num_layers):
-        """Calcula os custos do layout"""
+        """Calculate the costs associated with a layout.
+        
+        This method computes various costs related to a layout, including fabric cost,
+        cutting cost, layout cost, layer cost, and waste cost. It raises a ValueError
+        if any calculation fails.
+        
+        Args:
+            layout (dict): Layout data containing:
+                - fabric (str): Name of the fabric used
+                - total_area (float): Total area of the layout in mm²
+                - waste_area (float): Area of waste in mm²
+                - fabric_width (float): Width of the fabric in mm
+            num_layers (int): Number of layers in the layout
+            
+        Returns:
+            dict: Dictionary containing:
+                - fabric_meters (float): Total fabric length in meters
+                - fabric_cost (float): Cost of fabric used
+                - cutting_cost (float): Cost of cutting operations
+                - layout_cost (float): Cost of layout setup
+                - layer_cost (float): Cost related to the number of layers
+                - waste_cost (float): Cost of waste
+                - fabric_waste_area (float): Area of fabric wasted in m²
+                - fabric_waste_meters (float): Linear waste in meters
+                - total_waste_percentage (float): Percentage of total waste
+                
+        Raises:
+            ValueError: If any calculation errors occur.
+        """
         try:
             fabric = self.fabrics[layout['fabric']]
             
-            # Primeiro calcula métricas básicas do layout
+            # First, calculate basic metrics of the layout
             base_metrics = UnitConverter.calculate_layout_metrics(layout, num_layers)
             
-            # Prepara dados para cálculo de desperdício
+            # Prepare data for waste calculation
             waste_data = {
-                'total_area': layout['total_area'],  # área original em mm²
-                'waste_area': layout['waste_area'],  # área de desperdício em mm²
-                'fabric_width': layout['fabric_width']  # largura em mm
+                'total_area': layout['total_area'],  # Original area in mm²
+                'waste_area': layout['waste_area'],  # Waste area in mm²
+                'fabric_width': layout['fabric_width']  # Width in mm
             }
             
-            # Calcula métricas de desperdício
+            # Calculate waste metrics
             waste_metrics = UnitConverter.calculate_waste_metrics(waste_data)
             
-            # Calcula custos
+            # Calculate costs
             costs = {
                 'fabric_meters': base_metrics['length_meters'] * num_layers,
                 'fabric_cost': base_metrics['length_meters'] * fabric['price_per_linear_meter'] * num_layers,
@@ -439,7 +724,7 @@ class LayoutOptimizer:
                 'waste_cost': waste_metrics['fabric_waste_meters'] * fabric['price_per_linear_meter'] * num_layers
             }
             
-            # Adiciona métricas de desperdício aos custos
+            # Add waste metrics to costs
             costs.update({
                 'fabric_waste_area': waste_metrics['fabric_waste_area'] * num_layers,
                 'fabric_waste_meters': waste_metrics['fabric_waste_meters'] * num_layers,
@@ -449,14 +734,39 @@ class LayoutOptimizer:
             return costs
             
         except Exception as e:
-            logging.error(f"Erro no cálculo de custos do layout {layout.get('id')}: {str(e)}")
+            logging.error(f"Error calculating costs for layout {layout.get('id')}: {str(e)}")
             raise
 
 
     def _process_solution(self, solver, x, y, overproduction, filtered_layouts, demand_quantity, pattern):
-        """Processa a solução do solver e calcula todas as métricas"""
+        """Process the solver's solution and calculate all metrics.
+        
+        This method extracts the solution values from the solver, calculates various
+        metrics related to the production layout, and prepares the results for output.
+        
+        Args:
+            solver: The solver instance used to find the solution.
+            x (dict): Decision variable values indicating the number of layers for each layout.
+            y (dict): Decision variable values indicating whether a layout is used.
+            overproduction (dict): Overproduction values for each size.
+            filtered_layouts (list): List of layouts that were filtered for compatibility.
+            demand_quantity (dict): Quantity of demand for each size.
+            pattern (str): The pattern being processed.
+            
+        Returns:
+            dict: A dictionary containing:
+                - pattern (str): The pattern being processed.
+                - metrics (dict): Calculated metrics including costs and waste.
+                - demand (dict): Demand quantities for each size.
+                - production (dict): Production quantities for each size.
+                - overproduction (dict): Overproduction quantities for each size.
+                - layouts_used (list): Information about the layouts used.
+                
+        Raises:
+            ValueError: If any processing errors occur.
+        """
         try:
-            # Captura os valores das variáveis imediatamente após a solução
+            # Capture the values of the variables immediately after the solution
             layout_solutions = {
                 layout['id']: x[layout['id']].solution_value() 
                 for layout in filtered_layouts
@@ -476,51 +786,51 @@ class LayoutOptimizer:
                     'fabric_waste_meters': 0.0,
                     'total_waste_percentage': 0.0
                 },
-                'demand': {size: demand_quantity.get(size, 0) for size in self.sizes},  # Modificado
-                'production': {size: 0 for size in self.sizes},  # Modificado
-                'overproduction': {size: 0 for size in self.sizes},  # Modificado
+                'demand': {size: demand_quantity.get(size, 0) for size in self.sizes},  
+                'production': {size: 0 for size in self.sizes},  
+                'overproduction': {size: 0 for size in self.sizes},  
                 'layouts_used': []
             }
 
             total_area = 0
             total_waste_area = 0
 
-            # Processa cada layout utilizado
+            # Process each used layout
             for layout in filtered_layouts:
                 num_layers = int(layout_solutions[layout['id']])
                 if num_layers > 0:
-                    # Calcula métricas básicas do layout
+                    # Calculate basic metrics of the layout
                     metrics = UnitConverter.calculate_layout_metrics(layout, num_layers)
                     
-                    # Calcula métricas de desperdício
+                    # Calculate waste metrics
                     waste_metrics = UnitConverter.calculate_waste_metrics({
                         'total_area': layout['total_area'],
                         'waste_area': layout['waste_area'],
                         'fabric_width': layout['fabric_width']
                     })
                     
-                    # Calcula custos do layout
+                    # Calculate layout costs
                     layout_costs = self._calculate_layout_costs(layout, num_layers)
                     
-                    # Prepara informações do layout
+                    # Prepare layout information
                     layout_info = {
                         'layout_id': layout['id'],
                         'num_layers': num_layers,
                         'length_meters': metrics['length_meters'],
                         'utilization': layout['utilization'],
                         'waste_area': waste_metrics['fabric_waste_area'],
-                        'production_per_size': {size: 0 for size in self.sizes},  # Modificado
+                        'production_per_size': {size: 0 for size in self.sizes},  
                         'costs': layout_costs
                     }
                     
-                    # Calcula produção por tamanho
+                    # Calculate production by size
                     for size in self.sizes:
                         if size in layout['pieces'][0]['size_grade']:
                             qty = layout['pieces'][0]['size_grade'][size] * num_layers
                             layout_info['production_per_size'][size] = qty
-                            result['production'][size] = result['production'].get(size, 0) + qty
-                    
-                    # Atualiza métricas totais
+                            result['production'][size] += qty
+                        
+                    # Update total metrics
                     result['metrics']['fabric_meters'] += metrics['length_meters'] * num_layers
                     result['metrics']['fabric_cost'] += layout_costs['fabric_cost']
                     result['metrics']['cutting_cost'] += layout_costs['cutting_cost']
@@ -530,17 +840,17 @@ class LayoutOptimizer:
                     result['metrics']['fabric_waste_area'] += waste_metrics['fabric_waste_area'] * num_layers
                     result['metrics']['fabric_waste_meters'] += waste_metrics['fabric_waste_meters'] * num_layers
                     
-                    # Acumula áreas para cálculo do desperdício total
+                    # Accumulate areas for total waste calculation
                     total_area += layout['total_area'] * num_layers
                     total_waste_area += layout['waste_area'] * num_layers
                     
                     result['layouts_used'].append(layout_info)
             
-            # Calcula percentual total de desperdício
+            # Calculate total waste percentage
             if total_area > 0:
                 result['metrics']['total_waste_percentage'] = (total_waste_area / total_area) * 100
             
-            # Calcula custo total
+            # Calculate total cost
             result['metrics']['total_cost'] = sum([
                 result['metrics']['fabric_cost'],
                 result['metrics']['cutting_cost'],
@@ -549,7 +859,7 @@ class LayoutOptimizer:
                 result['metrics']['waste_cost']
             ])
             
-            # Calcula superprodução final
+            # Calculate final overproduction
             for size in self.sizes:
                 if size in demand_quantity:
                     result['overproduction'][size] = max(0, result['production'][size] - demand_quantity[size])
@@ -557,21 +867,35 @@ class LayoutOptimizer:
             return result
             
         except Exception as e:
-            logging.error(f"Erro no processamento da solução: {str(e)}")
+            logging.error(f"Error processing the solution: {str(e)}")
             logging.error(traceback.format_exc())
             raise
 
     def _validate_final_results(self, result):
-        """Validação final dos resultados"""
+        """Final validation of the results.
+        
+        This method checks the final production results against the demand and validates
+        the total costs to ensure consistency. It raises a ValueError if any validation
+        checks fail.
+        
+        Args:
+            result (dict): The results dictionary containing:
+                - production (dict): Production quantities for each size.
+                - demand (dict): Demand quantities for each size.
+                - metrics (dict): Calculated metrics including costs.
+                
+        Raises:
+            ValueError: If production is insufficient or excessive, or if total costs are inconsistent.
+        """
         try:
-            # Valida produção vs demanda
+            # Validate production vs demand
             for size in self.sizes:
                 if result['production'][size] < result['demand'][size]:
-                    raise ValueError(f"Produção insuficiente para tamanho {size}")
+                    raise ValueError(f"Insufficient production for size {size}")
                 if result['production'][size] > result['demand'][size] * 1.05:
-                    raise ValueError(f"Superprodução excessiva para tamanho {size}")
+                    raise ValueError(f"Excessive overproduction for size {size}")
                     
-            # Valida custos totais
+            # Validate total costs
             total_cost = sum([
                 result['metrics']['fabric_cost'],
                 result['metrics']['cutting_cost'],
@@ -582,65 +906,88 @@ class LayoutOptimizer:
             
             if abs(total_cost - result['metrics']['total_cost']) > 0.01:
                 raise ValueError(
-                    f"Inconsistência no custo total: "
-                    f"calculado {total_cost:.2f}, "
-                    f"informado {result['metrics']['total_cost']:.2f}"
+                    f"Inconsistency in total cost: "
+                    f"calculated {total_cost:.2f}, "
+                    f"reported {result['metrics']['total_cost']:.2f}"
                 )
                 
         except Exception as e:
-            logging.error(f"Erro na validação final: {str(e)}")
+            logging.error(f"Error in final validation: {str(e)}")
             raise
 
     def _validate_units(self, result):
-        """Valida as unidades das métricas calculadas"""
+        """Validate the units of the calculated metrics.
+        
+        This method checks the calculated metrics to ensure that they are consistent
+        with the expected units. It raises a ValueError if any validation checks fail.
+        
+        Args:
+            result (dict): The results dictionary containing:
+                - metrics (dict): Calculated metrics including fabric meters.
+                - layouts_used (list): Information about the layouts used.
+                
+        Raises:
+            ValueError: If any unit validations fail.
+        """
         try:
-            # Validações existentes
+            # Existing validations
             if result['metrics']['fabric_meters'] < 0:
-                raise ValueError("Metros de tecido não pode ser negativo")
+                raise ValueError("Fabric meters cannot be negative")
             
-            # Novas validações
+            # New validations
             for layout in result['layouts_used']:
-                # Valida conversões
+                # Validate conversions
                 length_m = UnitConverter.mm_to_m(layout['layout_length'])
                 waste_m2 = UnitConverter.cm2_to_m2(layout['waste_area'])
                 
-                # Compara com valores calculados
+                # Compare with calculated values
                 if abs(layout['length_meters'] - length_m) > 0.001:
-                    raise ValueError(f"Inconsistência na conversão de comprimento no layout {layout['layout_id']}")
+                    raise ValueError(f"Inconsistency in length conversion for layout {layout['layout_id']}")
                     
                 if abs(layout['waste_area'] - waste_m2) > 0.001:
-                    raise ValueError(f"Inconsistência na conversão de área no layout {layout['layout_id']}")
+                    raise ValueError(f"Inconsistency in area conversion for layout {layout['layout_id']}")
                     
         except Exception as e:
-            logging.error(f"Erro na validação de unidades: {str(e)}")
+            logging.error(f"Error in unit validation: {str(e)}")
             raise
     
     def optimize_order(self, order):
         """
-        Optimize an specific order allowing multiple layouts
+        Optimize a specific order allowing multiple layouts.
         
         Calculation formulas:
-
+        
             1. Fabric cost:
-        fabric_cost = price_per_linear_meter * layout_length * num_layers / 1000
+            fabric_cost = price_per_linear_meter * layout_length * num_layers / 1000
 
             2. Cutting cost:
-        cutting_cost = cost_per_cut_meter * total_perimeter * num_layers / 1000
+            cutting_cost = cost_per_cut_meter * total_perimeter * num_layers / 1000
 
             3. Setup cost:
-        setup_cost = cost_per_layer * num_layers + 
-                        cost_per_layout_meter * layout_length * num_layers / 1000
+            setup_cost = cost_per_layer * num_layers + 
+                            cost_per_layout_meter * layout_length * num_layers / 1000
 
             4. Waste cost:
-        waste_cost = (waste_area_m2 * fabric_price_per_m2 * num_layers * waste_penalty_factor)
+            waste_cost = (waste_area_m2 * fabric_price_per_m2 * num_layers * waste_penalty_factor)
 
             5. Total cost:
-        total_cost = fabric_cost + cutting_cost + setup_cost + layer_cost + waste_cost
-        
+            total_cost = fabric_cost + cutting_cost + setup_cost + layer_cost + waste_cost
+            
+        Args:
+            order (dict): The order data containing:
+                - pieces (list): List of pieces to be produced.
+                - max_layers (int): Maximum number of layers allowed for the order.
+                - pattern (str): The pattern associated with the order.
+                
+        Returns:
+            dict: A dictionary containing the optimization results, including metrics and production details.
+            
+        Raises:
+            ValueError: If any validation or optimization errors occur.
         """
         try:
-            logging.info("=== Iniciando Otimização ===")
-            logging.info(f"Demanda por tamanho: {order['pieces'][0]['quantity']}")
+            logging.info("=== Starting Optimization ===")
+            logging.info(f"Demand by size: {order['pieces'][0]['quantity']}")
             self._validate_input_data(order)
 
             piece = order['pieces'][0]
@@ -648,10 +995,10 @@ class LayoutOptimizer:
             demand_quantity = piece['quantity']
             fabric = piece['fabrics'][0]
             
-            logging.info(f"Iniciando otimização para {pattern}")
-            logging.info(f"Demanda: {demand_quantity}")
+            logging.info(f"Starting optimization for {pattern}")
+            logging.info(f"Demand: {demand_quantity}")
             
-            # Filtra e ordena layouts
+            # Filter and sort layouts
             filtered_layouts = [
                 layout for layout in self.layouts
                 if layout['fabric'] == fabric 
@@ -659,81 +1006,76 @@ class LayoutOptimizer:
             ]
             filtered_layouts.sort(key=lambda x: x['utilization'], reverse=True)
 
-            # Valida tamanhos em todos os layouts filtrados
+            # Validate sizes in all filtered layouts
             for layout in filtered_layouts:
                 self._validate_layout_sizes(layout)
             
-            # Log dos layouts disponíveis
+            # Log available layouts
             for layout in filtered_layouts:
-                logging.info(f"Layout {layout['id']}: {layout['utilization']*100:.1f}% utilização")
-                logging.info("  Peças por camada:")
+                logging.info(f"Layout {layout['id']}: {layout['utilization']*100:.1f}% utilization")
+                logging.info("  Pieces per layer:")
                 for size, qty in layout['pieces'][0]['size_grade'].items():
                     logging.info(f"    {size}: {qty}")
             
-            # Configuração do solver
+            # Solver setup
             solver = pywraplp.Solver.CreateSolver('SCIP')
-            solver.SetTimeLimit(self.config.get('solver_time_limit', 1) * 60 * 1000)  # converte minutos para milissegundos
+            solver.SetTimeLimit(self.config.get('solver_time_limit', 1) * 60 * 1000)  # Convert minutes to milliseconds
             scip_params = (
                 f"limits/gap = {self.optimality_gap}\n"
                 f"limits/memory = {self.max_memory_mb}\n"
-                "display/verblevel = 4\n"  # Nível de log detalhado
-                "timing/clocktype = 1\n"    # Usa tempo de CPU
+                "display/verblevel = 4\n"  # Detailed log level
+                "timing/clocktype = 1\n"    # Use CPU time
             )
             solver.SetSolverSpecificParametersAsString(scip_params)
             
-            # Variáveis de decisão
-            x = {}  # número de camadas por layout
-            y = {}  # variável binária indicando se o layout é usado
+            # Decision variables
+            x = {}  # Number of layers per layout
+            y = {}  # Binary variable indicating if the layout is used
             
-            # Inicializa variáveis para cada layout
+            # Initialize variables for each layout
             for layout in filtered_layouts:
                 x[layout['id']] = solver.IntVar(0, order['max_layers'], f'x_{layout["id"]}')
                 y[layout['id']] = solver.IntVar(0, 1, f'y_{layout["id"]}')
                 
-                # Relaciona x e y: se y=0, x deve ser 0
+                # Relate x and y: if y=0, x must be 0
                 solver.Add(x[layout['id']] <= order['max_layers'] * y[layout['id']])
 
-                # Garante uso de pelo menos um layout
+                # Ensure at least one layout is used
                 solver.Add(
                     x[layout['id']] >= self.min_layers_per_layout * y[layout['id']]
                 )
                 
-                # Se não é usado (y=0), deve ter 0 camadas
+                # If not used (y=0), must have 0 layers
                 solver.Add(x[layout['id']] <= order['max_layers'] * y[layout['id']])
             
-                # Garante uso de pelo menos um layout
-                # solver.Add(solver.Sum(y[l['id']] for l in filtered_layouts) >= 1)
-            
-            
-            # Cria variáveis para superprodução
+            # Create variables for overproduction
             overproduction = {}
             for size in self.sizes:
                 overproduction[size] = solver.NumVar(0, solver.infinity(), f'over_{size}')
             
-            # Restrições de demanda por tamanho
+            # Demand constraints by size
             for size in self.sizes:
                 if size in demand_quantity:
-                    # Soma a produção de todos os layouts
+                    # Sum production from all layouts
                     total_production = solver.Sum([
                         x[layout['id']] * layout['pieces'][0]['size_grade'].get(size, 0)
                         for layout in filtered_layouts
                     ])
                     
-                    # Garante produção mínima
+                    # Ensure minimum production
                     solver.Add(total_production >= demand_quantity[size])
                     
-                    # Limita excesso de produção
-                    solver.Add(total_production <= demand_quantity[size] * (1 + self.overproduction_penalty))  # 5% máximo
+                    # Limit excess production
+                    solver.Add(total_production <= demand_quantity[size] * (1 + self.overproduction_penalty))  # 5% maximum
                     
-                    logging.info(f"Configurada restrição para tamanho {size}:")
-                    logging.info(f"  Demanda: {demand_quantity[size]}")
-                    logging.info(f"  Produção mínima: {demand_quantity[size]}")
-                    logging.info(f"  Produção máxima: {demand_quantity[size] * 1.05}")
+                    logging.info(f"Configured constraint for size {size}:")
+                    logging.info(f"  Demand: {demand_quantity[size]}")
+                    logging.info(f"  Minimum production: {demand_quantity[size]}")
+                    logging.info(f"  Maximum production: {demand_quantity[size] * 1.05}")
             
-            
-             # Função objetivo corrigida
+            # Corrected objective function
             objective = solver.Sum([
-                x[layout['id']] * UnitConverter.cm2_to_m2(float(layout['waste_area']))  +  # Converte para float e m²
+                x[layout['id']] * UnitConverter.cm2_to_m2(float(layout['waste_area'])) +  # Convert to float and m²
                 solver.Sum([
                     overproduction[size] * 0.01 * float(layout['waste_area']) / float(layout['total_area'])
                     for size in self.sizes
@@ -741,7 +1083,7 @@ class LayoutOptimizer:
                 for layout in filtered_layouts
             ])
 
-            # Adiciona restrição de número mínimo de camadas
+            # Add minimum layer count constraint
             for layout in filtered_layouts:
                 solver.Add(
                     x[layout['id']] >= self.min_layers_per_layout * y[layout['id']]
@@ -749,35 +1091,35 @@ class LayoutOptimizer:
 
             solver.Minimize(objective)
             
-            # Resolve o problema
+            # Solve the problem
             status = solver.Solve()
-            logging.info(f"Status da solução: {status}")
+            logging.info(f"Solution status: {status}")
             
             if status == solver.OPTIMAL:
-                logging.info("Solução ótima encontrada!")
-                logging.info(f"Valor objetivo: {solver.Objective().Value():.6f}")
-                logging.info(f"Melhor limite: {solver.Objective().BestBound():.6f}")
+                logging.info("Optimal solution found!")
+                logging.info(f"Objective value: {solver.Objective().Value():.6f}")
+                logging.info(f"Best bound: {solver.Objective().BestBound():.6f}")
                 gap = abs(solver.Objective().Value() - solver.Objective().BestBound()) / abs(solver.Objective().Value())
-                logging.info(f"Gap de otimalidade: {gap*100:.6f}%")
+                logging.info(f"Optimality gap: {gap*100:.6f}%")
             elif status == solver.FEASIBLE:
-                logging.info("Solução viável encontrada (não necessariamente ótima)")
-                logging.info(f"Gap de otimalidade: {gap*100:.6f}%")
+                logging.info("Feasible solution found (not necessarily optimal)")
+                logging.info(f"Optimality gap: {gap*100:.6f}%")
             else:
-                logging.warning("Nenhuma solução viável encontrada")
+                logging.warning("No feasible solution found")
                 return None
                 
-            # Log da solução encontrada
+            # Log the found solution
             if status in [solver.OPTIMAL, solver.FEASIBLE]:
-                logging.info("\nDetalhes da solução:")
+                logging.info("\nSolution details:")
                 total_production = {size: 0 for size in self.sizes}
                 
                 for layout in filtered_layouts:
                     num_layers = int(x[layout['id']].solution_value())
                     if num_layers > 0:
-                        logging.info(f"\nLayout {layout['id']} selecionado:")
-                        logging.info(f"  Número de camadas: {num_layers}")
-                        logging.info(f"  Aproveitamento: {layout['utilization']*100:.1f}%")
-                        logging.info("  Produção por tamanho:")
+                        logging.info(f"\nLayout {layout['id']} selected:")
+                        logging.info(f"  Number of layers: {num_layers}")
+                        logging.info(f"  Utilization: {layout['utilization']*100:.1f}%")
+                        logging.info("  Production by size:")
                         
                         for size in self.sizes:
                             if size in layout['pieces'][0]['size_grade']:
@@ -785,13 +1127,13 @@ class LayoutOptimizer:
                                 total_production[size] += prod
                                 logging.info(f"    {size}: {prod}")
                 
-                logging.info("\nProdução total por tamanho:")
+                logging.info("\nTotal production by size:")
                 for size in self.sizes:
                     if size in demand_quantity:
-                        logging.info(f"  {size}: {total_production[size]} (Demanda: {demand_quantity[size]})")
+                        logging.info(f"  {size}: {total_production[size]} (Demand: {demand_quantity[size]})")
                 
                 if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
-                    # Processa solução 
+                    # Process solution 
                     result = self._process_solution(
                         solver=solver,
                         x=x,
@@ -801,9 +1143,8 @@ class LayoutOptimizer:
                         demand_quantity=demand_quantity,
                         pattern=pattern
                     )
-            
                     
-                    # Adiciona informações do solver
+                    # Add solver information
                     result['solver_info'] = {
                         'status': 'optimal' if status == pywraplp.Solver.OPTIMAL else 'feasible',
                         'gap': gap,
@@ -814,11 +1155,10 @@ class LayoutOptimizer:
                     }
                     self._validate_solution(result, demand_quantity)
 
-                     
-                    logging.info("=== Resultados da Otimização ===")
+                    logging.info("=== Optimization Results ===")
                     logging.info(f"Status: {status}")
-                    logging.info(f"Valor objetivo: {solver.Objective().Value()}")
-                    logging.info("Custos detalhados:")
+                    logging.info(f"Objective value: {solver.Objective().Value()}")
+                    logging.info("Detailed costs:")
                     for metric, value in result['metrics'].items():
                         logging.info(f"  {metric}: {value:.2f}")
                     
@@ -827,27 +1167,40 @@ class LayoutOptimizer:
             return None
             
         except Exception as e:
-            logging.error(f"Erro na otimização: {str(e)}")
+            logging.error(f"Error in optimization: {str(e)}")
             import traceback
             logging.error(traceback.format_exc())
             return None
     
     def _validate_input_data(self, order):
-        """Valida dados de entrada"""
+        """Validate input data for the order.
+        
+        This method checks the validity of the input order data, ensuring that it contains
+        the necessary pieces and that the demand sizes are valid. It raises a ValueError
+        if any validation checks fail.
+        
+        Args:
+            order (dict): The order data containing:
+                - pieces (list): List of pieces to be produced, each with a pattern, quantity, and fabrics.
+                
+        Raises:
+            ValueError: If the order is missing pieces, if any piece data is incomplete,
+                        or if the demand sizes are invalid.
+        """
         if not order.get('pieces'):
-            raise ValueError("Ordem deve conter peças")
+            raise ValueError("Order must contain pieces")
             
         piece = order['pieces'][0]
         if not all(key in piece for key in ['pattern', 'quantity', 'fabrics']):
-            raise ValueError("Dados da peça incompletos")
+            raise ValueError("Incomplete piece data")
             
-        # Validar se todos os tamanhos da demanda estão nos tamanhos extraídos
+        # Validate that all demand sizes are among the extracted sizes
         demand_sizes = set(piece['quantity'].keys())
         if not demand_sizes.issubset(set(self.sizes)):
             invalid_sizes = demand_sizes - set(self.sizes)
-            raise ValueError(f"Tamanhos inválidos na demanda: {invalid_sizes}")
+            raise ValueError(f"Invalid sizes in demand: {invalid_sizes}")
         
-        # Nova validação: Verifica se os layouts podem produzir todos os tamanhos demandados
+        # New validation: Check if layouts can produce all demanded sizes
         layouts_production_capacity = {}
         for layout in self.layouts:
             if layout['pieces'][0]['pattern'] == piece['pattern']:
@@ -857,7 +1210,7 @@ class LayoutOptimizer:
                     else:
                         layouts_production_capacity[size] = qty
         
-        # Verifica se há layouts que produzem cada tamanho demandado
+        # Check if there are layouts that produce each demanded size
         missing_sizes = []
         insufficient_sizes = []
         for size, demand_qty in piece['quantity'].items():
@@ -868,32 +1221,56 @@ class LayoutOptimizer:
         
         if missing_sizes:
             raise ValueError(
-                f"Não existem layouts que produzam os seguintes tamanhos: {missing_sizes}"
+                f"No layouts can produce the following sizes: {missing_sizes}"
             )
         
         if insufficient_sizes:
             raise ValueError(
-                f"Layouts têm capacidade zero para os seguintes tamanhos: {insufficient_sizes}"
+                f"Layouts have zero capacity for the following sizes: {insufficient_sizes}"
             )
         
-        logging.info("Capacidade de produção dos layouts por tamanho:")
+        logging.info("Production capacity of layouts by size:")
         for size in sorted(layouts_production_capacity.keys()):
-            logging.info(f"  {size}: máximo de {layouts_production_capacity[size]} peças por camada")
+            logging.info(f"  {size}: maximum of {layouts_production_capacity[size]} pieces per layer")
     
     def _validate_layout_sizes(self, layout):
-        """Valida se os tamanhos no layout são compatíveis com os tamanhos extraídos"""
+        """Validate if the sizes in the layout are compatible with the extracted sizes.
+        
+        This method checks each piece in the layout to ensure that all sizes specified
+        in the layout are valid and exist in the predefined set of sizes. It raises a
+        ValueError if any invalid sizes are found.
+        
+        Args:
+            layout (dict): The layout data containing:
+                - pieces (list): List of pieces in the layout, each with a size grade.
+                
+        Raises:
+            ValueError: If any sizes in the layout are invalid.
+        """
         for piece in layout['pieces']:
             layout_sizes = set(piece['size_grade'].keys())
             if not layout_sizes.issubset(set(self.sizes)):
                 invalid_sizes = layout_sizes - set(self.sizes)
-                raise ValueError(f"Tamanhos inválidos no layout {layout['id']}: {invalid_sizes}")
+                raise ValueError(f"Invalid sizes in layout {layout['id']}: {invalid_sizes}")
 
     def _validate_solution(self, solution, demand):
-        """Valida resultado da otimização"""
-        if not solution:  
-            raise ValueError("Solução inválida (None)")
+        """Validate the optimization result.
+        
+        This method checks the validity of the optimization solution, ensuring that it
+        is not None and that all required metrics are present. It raises a ValueError
+        if any validation checks fail.
+        
+        Args:
+            solution (dict): The optimization result containing metrics and production details.
+            demand (dict): The demand data for validation purposes.
             
-        # Verifica se todas as métricas necessárias existem
+        Raises:
+            ValueError: If the solution is invalid or if any required metrics are missing.
+        """
+        if not solution:  
+            raise ValueError("Invalid solution (None)")
+            
+        # Check if all required metrics exist
         required_metrics = [
             'fabric_meters', 'fabric_cost', 'cutting_cost', 
             'layout_cost', 'layer_cost', 'waste_cost',
@@ -902,29 +1279,40 @@ class LayoutOptimizer:
         
         for metric in required_metrics:
             if metric not in solution['metrics']:
-                raise ValueError(f"Métrica ausente: {metric}")
+                raise ValueError(f"Missing metric: {metric}")
         
 
     def export_results(self, results):
-        """Exporta resultados para Excel"""
+        """Export results to an Excel file.
+        
+        This method creates an Excel workbook and populates it with the optimization
+        results, including order details, layout information, and various metrics.
+        
+        Args:
+            results (dict): A dictionary containing the results of the optimization,
+                            indexed by order ID.
+                            
+        Returns:
+            None
+        """
         wb = Workbook()
         ws = wb.active
-        ws.title = "Resultados"
+        ws.title = "Results"
         
-        # Cabeçalhos ajustados para maior clareza
+        # Adjusted headers for clarity
         headers = [
-            "Ordem", "Padrão", "Layout", "Camadas", 
-            "Comprimento Total (m)", "Aproveitamento (%)",
-            "P", "M", "G", "GG",
-            "Custo Total (R$)", 
-            "Tecido Total (m)",
-            "Desperdício (m²)",
-            "Desperdício (m)",
-            "Desperdício (%)"  
+            "Order", "Pattern", "Layout", "Layers", 
+            "Total Length (m)", "Utilization (%)",
+            "S", "M", "L", "XL",
+            "Total Cost (R$)", 
+            "Total Fabric (m)",
+            "Waste (m²)",
+            "Waste (m)",
+            "Waste (%)"  
         ]
         ws.append(headers)
         
-        # Dados
+        # Data
         for order_id, result in results.items():
             if result:
                 for layout in result['layouts_used']:
@@ -953,28 +1341,52 @@ class LayoutOptimizer:
 
     @staticmethod
     def remove_accents(text):
-        """Remove acentos e caracteres especiais de uma string"""
+        """Remove accents and special characters from a string.
+        
+        This method normalizes the input text to remove diacritics (accents) and
+        special characters, returning a clean string. If an error occurs during
+        processing, the original text is returned.
+        
+        Args:
+            text (str): The input string from which accents and special characters
+                        will be removed.
+                        
+        Returns:
+            str: The cleaned string without accents or special characters.
+        """
         try:
-            text = str(text)
-            normalized = unicodedata.normalize('NFKD', text)
-            return u"".join([c for c in normalized if not unicodedata.combining(c)])
+            text = str(text)  # Ensure the input is a string
+            normalized = unicodedata.normalize('NFKD', text)  # Normalize the string
+            return u"".join([c for c in normalized if not unicodedata.combining(c)])  # Remove accents
         except Exception:
-            return text
+            return text  # Return the original text if an error occurs
 
     
 
     def export_results_json(self, results):
-        """Exporta resultados para arquivo JSON"""
+        """Export results to a JSON file.
+        
+        This method processes the optimization results and exports them to a JSON file,
+        including metrics, demand, production, and layout information with explicit units.
+        
+        Args:
+            results (dict): A dictionary containing the results of the optimization,
+                            indexed by order ID.
+                            
+        Returns:
+            None
+        """
         try:
             output = []
             for order_id, result in results.items():
                 if result:
                     def convert_variable(value):
+                        """Convert solution variable to integer if it has a solution value."""
                         if hasattr(value, 'solution_value'):
                             return int(value.solution_value())
                         return int(value)
 
-                    # Métricas com unidades explícitas
+                    # Metrics with explicit units
                     metrics = {
                         "fabric_meters": {
                             "value": round(float(result['metrics']['fabric_meters']), 3),
@@ -1043,13 +1455,13 @@ class LayoutOptimizer:
                         "layouts_used": []
                     }
 
-                    # Processa layouts com unidades explícitas
+                    # Process layouts with explicit units
                     for layout in result.get('layouts_used', []):
                         layout_info = {
                             "layout_id": layout['layout_id'],
                             "num_layers": {
                                 "value": convert_variable(layout['num_layers']),
-                                "unit": "camadas"
+                                "unit": "layers"
                             },
                             "length_meters": {
                                 "value": round(float(layout['length_meters']), 3),
@@ -1066,7 +1478,7 @@ class LayoutOptimizer:
                             "production_per_size": {
                                 size: {
                                     "value": convert_variable(qty),
-                                    "unit": "peças"
+                                    "unit": "pieces"
                                 }
                                 for size, qty in layout['production_per_size'].items()
                             },
@@ -1089,32 +1501,39 @@ class LayoutOptimizer:
 
                     output.append(output_item)
 
-                # Escreve o resultado em um arquivo JSON
-                with open('results.json', 'w', encoding='utf-8') as f:
-                    json.dump(output, f, indent=4, ensure_ascii=False)
+            # Write the result to a JSON file
+            with open('results.json', 'w', encoding='utf-8') as f:
+                json.dump(output, f, indent=4, ensure_ascii=False)
 
         except Exception as e:
-            logging.error(f"Erro ao exportar resultados JSON: {str(e)}")
+            logging.error(f"Error exporting results to JSON: {str(e)}")
             logging.error(traceback.format_exc())
             raise
 
 def main():
-    """Função principal do otimizador"""
+    """Main function of the optimizer.
+    
+    This function loads input data, processes each piece as a separate order,
+    optimizes the production layout, and exports the results to both Excel and JSON files.
+    
+    Returns:
+        None
+    """
     try:
-        # Carrega dados de entrada
+        # Load input data
         with open('dados_entrada.json', 'r', encoding='utf-8') as f:
             input_data = json.load(f)
         
-        logging.info("Iniciando otimização de produção")
+        logging.info("Starting production optimization")
         optimizer = LayoutOptimizer(input_data)
         
-        # Processa cada peça como uma ordem separada
+        # Process each piece as a separate order
         results = {}
         for i, piece in enumerate(optimizer.pieces, 1):
             order_id = f'order_{i}'
-            logging.info(f"Processando {piece['pattern']} (Ordem {order_id})")
+            logging.info(f"Processing {piece['pattern']} (Order {order_id})")
             
-            # Cria estrutura de ordem
+            # Create order structure
             order = {
                 'id': order_id,
                 'pieces': [piece],
@@ -1123,36 +1542,36 @@ def main():
                 'max_length': optimizer.config['max_total_length']
             }
             
-            # Otimiza ordem
+            # Optimize order
             result = optimizer.optimize_order(order)
             results[order_id] = result
             
-            # Log dos resultados
+            # Log results
             if result:
-                logging.info(f"Solução encontrada para {piece['pattern']}")
-                logging.info("Produção por tamanho:")
+                logging.info(f"Solution found for {piece['pattern']}")
+                logging.info("Production by size:")
                 for size in optimizer.sizes:
                     prod = result['production'][size]
                     over = result['overproduction'][size]
-                    logging.info(f"  {size}: {prod} (Excesso: {over})")
+                    logging.info(f"  {size}: {prod} (Excess: {over})")
                     
                 metrics = result['metrics']
-                logging.info(f"Custo total: R$ {metrics['total_cost']:.2f}")
-                logging.info(f"Metros de tecido: {metrics['fabric_meters']:.2f} m")
-                logging.info(f"Desperdício: {metrics['fabric_waste']:.4f} m²")
+                logging.info(f"Total cost: R$ {metrics['total_cost']:.2f}")
+                logging.info(f"Fabric meters: {metrics['fabric_meters']:.2f} m")
+                logging.info(f"Waste: {metrics['fabric_waste_area']:.4f} m²")
             else:
-                logging.warning(f"Não foi possível encontrar solução para {piece['pattern']}")
+                logging.warning(f"Could not find a solution for {piece['pattern']}")
         
-        # Exporta resultados
+        # Export results
         if any(results.values()):
             optimizer.export_results(results)
             optimizer.export_results_json(results)
-            logging.info("Resultados exportados para results.xlsx e results.json")
+            logging.info("Results exported to results.xlsx and results.json")
         else:
-            logging.warning("Nenhuma solução encontrada")
+            logging.warning("No solutions found")
             
     except Exception as e:
-        logging.error(f"Erro na execução: {str(e)}")
+        logging.error(f"Execution error: {str(e)}")
         raise
 
 if __name__ == "__main__":

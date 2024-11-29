@@ -67,7 +67,7 @@
                 "layout_id": 3,
                 "num_layers": {
                     "value": 12,
-                    "unit": "camadas"
+                    "unit": "layers"
                 },
                 "length_meters": {
                     "value": 7.921,
@@ -84,19 +84,19 @@
                 "production_per_size": {
                     "G": {
                         "value": 12,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "GG": {
                         "value": 24,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "M": {
                         "value": 36,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "PP": {
                         "value": 24,
-                        "unit": "peças"
+                        "unit": "pieces"
                     }
                 },
                 "costs": {
@@ -118,7 +118,7 @@
                 "layout_id": 4,
                 "num_layers": {
                     "value": 9,
-                    "unit": "camadas"
+                    "unit": "layers"
                 },
                 "length_meters": {
                     "value": 7.233,
@@ -135,19 +135,19 @@
                 "production_per_size": {
                     "G": {
                         "value": 27,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "GG": {
                         "value": 9,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "M": {
                         "value": 9,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "PP": {
                         "value": 18,
-                        "unit": "peças"
+                        "unit": "pieces"
                     }
                 },
                 "costs": {
@@ -169,7 +169,7 @@
                 "layout_id": 2,
                 "num_layers": {
                     "value": 16,
-                    "unit": "camadas"
+                    "unit": "layers"
                 },
                 "length_meters": {
                     "value": 7.001,
@@ -186,19 +186,19 @@
                 "production_per_size": {
                     "G": {
                         "value": 16,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "GG": {
                         "value": 32,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "M": {
                         "value": 32,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "PP": {
                         "value": 16,
-                        "unit": "peças"
+                        "unit": "pieces"
                     }
                 },
                 "costs": {
@@ -220,7 +220,7 @@
                 "layout_id": 1,
                 "num_layers": {
                     "value": 1,
-                    "unit": "camadas"
+                    "unit": "layers"
                 },
                 "length_meters": {
                     "value": 7.772,
@@ -237,19 +237,19 @@
                 "production_per_size": {
                     "G": {
                         "value": 2,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "GG": {
                         "value": 1,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "M": {
                         "value": 2,
-                        "unit": "peças"
+                        "unit": "pieces"
                     },
                     "PP": {
                         "value": 2,
-                        "unit": "peças"
+                        "unit": "pieces"
                     }
                 },
                 "costs": {
