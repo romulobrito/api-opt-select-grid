@@ -304,7 +304,8 @@ class LayoutOptimizer:
                 self._validate_metrics(result['metrics'])
                 
         return results
-
+    
+    #TODO: Implementar validação de métricas de layout
     def _validate_layout_metrics(self, layout_data):
         """Validate the metrics of the layout.
         
@@ -440,7 +441,7 @@ class LayoutOptimizer:
             if metrics['total_cost'] <= 0:
                 raise ValueError("Total cost must be greater than zero")
             
-            # New validations for waste metrics
+            # Validations for waste metrics
             if metrics['fabric_waste_area'] < 0:
                 raise ValueError("Waste area cannot be negative")
             
