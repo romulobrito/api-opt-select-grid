@@ -1,16 +1,16 @@
 {
     "general_configuration": {
-        "optimality_gap": 0.001,  
-        "solver_time_limit": 6, 
-        "max_memory_mb": 2048, 
-        "criteria": "waste",
-        "overproduction_percentage": 0.05,
-        "max_layers": 50,
-        "max_total_length": 10000,
-        "waste_cost": 18.90,  
-        "min_layers_per_layout": 3      
-           
-    },
+    "optimality_gap": 0.001,  
+    "solver_time_limit": 6, 
+    "max_memory_mb": 2048, 
+    "criteria": "waste",
+    "overproduction_percentage": 0.05,
+    "min_layers_per_layout": 1,
+    "max_total_length": 10000,
+    "layout_change_penalty": 1000,
+    "waste_penalty_factor": 2.0
+},
+
     "fabrics": [
         {
             "fabric": "algodão",

@@ -1,9 +1,11 @@
 from datetime import timedelta
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, List
+
+
 
 from select_grids_layers import LayoutOptimizer
 from auth import (
@@ -41,8 +43,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
+
 
 class GeneralConfiguration(BaseModel):
     optimality_gap: float = Field(default=0.01, ge=0, le=1)
@@ -50,9 +51,7 @@ class GeneralConfiguration(BaseModel):
     max_memory_mb: int = Field(default=2048, ge=1)
     criteria: str = Field(default="waste")
     overproduction_percentage: float = Field(default=0.05, ge=0)
-    max_layers: int = Field(default=50, ge=1)
     max_total_length: int = Field(default=10000, ge=1)
-    waste_cost: float = Field(default=1000, ge=0)
     layout_change_penalty: float = Field(default=1000, ge=0)
     min_layers_per_layout: int = Field(default=5, ge=1)
     waste_penalty_factor: float = Field(default=2.0, ge=0)
