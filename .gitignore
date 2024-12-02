@@ -45,6 +45,10 @@ ENV/
 *.xlsx
 .html
 .md
+maco_entrega_2.html
+macro_entrega_2.md
+example_input.json
+
 
 # .py files
 min_cost_production.py
