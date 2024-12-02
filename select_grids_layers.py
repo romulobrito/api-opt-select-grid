@@ -564,8 +564,8 @@ class LayoutOptimizer:
             fabric = self.fabrics[layout["fabric"]]
 
             # Correct unit conversions
-            waste_area_m2 = layout["waste_area"] / 1_000_000  # Convert mm² to m²
-            fabric_width_m = layout["fabric_width"] / 1000  # Convert mm to m
+            waste_area_m2 = UnitConverter.cm2_to_m2(layout["waste_area"] / 100)  # mm² -> cm² -> m²
+            fabric_width_m = UnitConverter.mm_to_m(layout["fabric_width"])  # mm -> m
             waste_meters = waste_area_m2 / fabric_width_m
 
             # Calculate waste cost
@@ -620,7 +620,7 @@ class LayoutOptimizer:
             num_layers = layout_data["num_layers"]
 
             # Basic calculations
-            length_meters = layout_data["length_meters"] / 1000  # Convert mm to m
+            length_meters = UnitConverter.mm_to_m(layout_data["length_meters"])  # ao invés de / 1000
             fabric_cost = length_meters * fabric["price_per_linear_meter"] * num_layers
             cutting_cost = length_meters * fabric["cost_per_cut_meter"] * num_layers
             layout_cost = length_meters * fabric["cost_per_layout_meter"]
