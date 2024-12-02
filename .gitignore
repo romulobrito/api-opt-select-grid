@@ -45,3 +45,6 @@ ENV/
 *.xlsx
 .html
 .md
+
+# .py files
+min_cost_production.py
